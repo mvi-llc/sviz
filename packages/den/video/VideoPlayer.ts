@@ -5,6 +5,8 @@
 import { Mutex } from "async-mutex";
 import EventEmitter from "eventemitter3";
 
+// foxglove-depcheck-used: @types/dom-webcodecs
+
 const MAX_DECODE_WAIT_MS = 30;
 
 export type VideoPlayerEventTypes = {
