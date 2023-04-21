@@ -66,6 +66,7 @@ export type LayerSettingsImage = BaseSettings & {
 
 const NO_CAMERA_INFO_ERR = "NoCameraInfo";
 const CREATE_BITMAP_ERR = "CreateBitmap";
+const VIDEO_PLAYER_ERR = "VideoPlayer";
 const CAMERA_MODEL = "CameraModel";
 
 const DEFAULT_IMAGE_WIDTH = 512;
@@ -103,6 +104,11 @@ export class ImageRenderable extends Renderable<ImageUserData> {
   public videoPlayer: VideoPlayer | undefined;
 
   public override dispose(): void {
+    if (this.videoPlayer) {
+      this.videoPlayer.close();
+      this.videoPlayer.removeAllListeners();
+      this.videoPlayer = undefined;
+    }
     this.userData.texture?.dispose();
     this.userData.material?.dispose();
     this.userData.geometry?.dispose();
@@ -564,13 +570,22 @@ export class Images extends SceneExtension<ImageRenderable> {
           .then((bitmap) => this._updateImageBitmap(renderable, bitmap))
           .catch((err) => this._handleTopicError(topic, err as Error));
       } else if (image.format.startsWith("video/")) {
-        renderable.videoPlayer ??= new VideoPlayer();
+        if (!renderable.videoPlayer) {
+          renderable.videoPlayer = new VideoPlayer();
+          renderable.videoPlayer.on("debug", (msg) => log.debug(msg));
+          renderable.videoPlayer.on("warn", (msg) => log.warn(msg));
+          renderable.videoPlayer.on("error", (err) => {
+            log.error(err);
+            this.renderer.settings.errors.addToTopic(topic, VIDEO_PLAYER_ERR, err.message);
+          });
+        }
         const videoPlayer = renderable.videoPlayer;
         const timestampNs = renderable.userData.messageTime - renderable.userData.firstMessageTime!;
         const timestampMicros = Number(timestampNs / 1000n);
 
         const handleVideoFrame = async (videoFrame: VideoFrame | undefined) => {
           if (videoFrame) {
+            this.renderer.settings.errors.removeFromTopic(topic, VIDEO_PLAYER_ERR);
             const imageBitmap = await self.createImageBitmap(videoFrame, DEFAULT_BITMAP_OPTIONS);
             videoFrame.close();
             this._updateImageBitmap(renderable, imageBitmap);

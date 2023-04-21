@@ -186,11 +186,7 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
         );
         resolve(undefined);
       }, MAX_DECODE_WAIT_MS);
-      this.once("frame", (videoFrame) => {
-        this.emit(
-          "debug",
-          `Decoded ${data.byteLength} byte ${type} chunk at time ${timestampMicros} to ${videoFrame.displayWidth}x${videoFrame.displayHeight} ${videoFrame.format}`,
-        );
+      this.once("frame", (_videoFrame) => {
         clearTimeout(timeoutId);
         resolve();
       });
