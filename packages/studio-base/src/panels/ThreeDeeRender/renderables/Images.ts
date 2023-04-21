@@ -20,7 +20,9 @@ import {
   decodeMono8,
   decodeMono16,
   decodeYUYV,
+  BROWSER_IMAGE_FORMATS,
 } from "@foxglove/den/image";
+import { VideoPlayer } from "@foxglove/den/video";
 import Logger from "@foxglove/log";
 import { toNanoSec } from "@foxglove/rostime";
 import { CameraCalibration, CompressedImage, RawImage } from "@foxglove/schemas";
@@ -69,6 +71,7 @@ const CAMERA_MODEL = "CameraModel";
 const DEFAULT_IMAGE_WIDTH = 512;
 const DEFAULT_DISTANCE = 1;
 const DEFAULT_PLANAR_PROJECTION_FACTOR = 0;
+const DEFAULT_BITMAP_OPTIONS: ImageBitmapOptions = { resizeWidth: DEFAULT_IMAGE_WIDTH };
 
 const DEFAULT_SETTINGS: LayerSettingsImage = {
   visible: false,
@@ -82,6 +85,7 @@ const DEFAULT_SETTINGS: LayerSettingsImage = {
 export type ImageUserData = BaseUserData & {
   topic: string;
   settings: LayerSettingsImage;
+  firstMessageTime: bigint | undefined;
   cameraInfo: CameraInfo | undefined;
   cameraModel: PinholeCameraModel | undefined;
   image: AnyImage | undefined;
@@ -92,6 +96,12 @@ export type ImageUserData = BaseUserData & {
 };
 
 export class ImageRenderable extends Renderable<ImageUserData> {
+  // A cache for decompressed image data, where the size is not known ahead of
+  // time and may change between messages.
+  public imageDataCache = { data: new Uint8ClampedArray(0) };
+  // A lazily instantiated player for compressed video
+  public videoPlayer: VideoPlayer | undefined;
+
   public override dispose(): void {
     this.userData.texture?.dispose();
     this.userData.material?.dispose();
@@ -547,29 +557,52 @@ export class Images extends SceneExtension<ImageRenderable> {
 
     // Create or update the bitmap texture
     if ("format" in image) {
-      const bitmapData = new Blob([image.data], { type: `image/${image.format}` });
-      self
-        .createImageBitmap(bitmapData, { resizeWidth: DEFAULT_IMAGE_WIDTH })
-        .then((bitmap) => {
-          if (renderable.userData.texture == undefined) {
-            renderable.userData.texture = createCanvasTexture(bitmap);
-            rebuildMaterial(renderable);
-            tryCreateMesh(renderable, this.renderer);
-          } else {
-            renderable.userData.texture.image.close();
-            renderable.userData.texture.image = bitmap;
-            renderable.userData.texture.needsUpdate = true;
-          }
+      if (BROWSER_IMAGE_FORMATS.has(image.format)) {
+        const bitmapData = new Blob([image.data], { type: `image/${image.format}` });
+        self
+          .createImageBitmap(bitmapData, DEFAULT_BITMAP_OPTIONS)
+          .then((bitmap) => this._updateImageBitmap(renderable, bitmap))
+          .catch((err) => this._handleTopicError(topic, err as Error));
+      } else if (image.format.startsWith("video/")) {
+        renderable.videoPlayer ??= new VideoPlayer();
+        const videoPlayer = renderable.videoPlayer;
+        const timestampNs = renderable.userData.messageTime - renderable.userData.firstMessageTime!;
+        const timestampMicros = Number(timestampNs / 1000n);
 
-          this.renderer.settings.errors.removeFromTopic(topic, CREATE_BITMAP_ERR);
-        })
-        .catch((err) => {
-          this.renderer.settings.errors.addToTopic(
-            topic,
-            CREATE_BITMAP_ERR,
-            `createBitmap failed: ${err.message}`,
-          );
-        });
+        const handleVideoFrame = async (videoFrame: VideoFrame | undefined) => {
+          if (videoFrame) {
+            const imageBitmap = await self.createImageBitmap(videoFrame, DEFAULT_BITMAP_OPTIONS);
+            videoFrame.close();
+            this._updateImageBitmap(renderable, imageBitmap);
+          }
+        };
+
+        // Delta frames (P-frames) use a simple MIME type for format (ex: "video/avc"), while key
+        // frames (I-frames) use a MIME type with parameters (ex: "video/avc;codec=avc1.640028;...")
+        const type = image.format.includes(";") ? "key" : "delta";
+        if (type === "key" && !videoPlayer.isInitialized()) {
+          const decoderConfig = VideoPlayer.ParseDecoderConfig(image.format);
+          if (!decoderConfig) {
+            this._handleTopicError(topic, new Error(`Invalid VideoDecoderConfig: ${image.format}`));
+            return;
+          }
+          videoPlayer
+            .init(decoderConfig)
+            .then(async () => await videoPlayer.decode(image.data, timestampMicros, type))
+            .then(handleVideoFrame)
+            .catch((err) => this._handleTopicError(topic, err as Error));
+        } else {
+          videoPlayer
+            .decode(image.data, timestampMicros, type)
+            .then(handleVideoFrame)
+            .catch((err) => this._handleTopicError(topic, err as Error));
+        }
+      } else {
+        this._handleTopicError(
+          topic,
+          new Error(`Unsupported compressed image format: ${image.format}`),
+        );
+      }
     } else {
       const { width, height } = image;
       const prevTexture = renderable.userData.texture as THREE.DataTexture | undefined;
@@ -598,6 +631,29 @@ export class Images extends SceneExtension<ImageRenderable> {
     tryCreateMesh(renderable, this.renderer);
   }
 
+  private _updateImageBitmap = (renderable: ImageRenderable, bitmap: ImageBitmap): void => {
+    const { texture, topic } = renderable.userData;
+    if (texture == undefined) {
+      renderable.userData.texture = createCanvasTexture(bitmap);
+      rebuildMaterial(renderable);
+      tryCreateMesh(renderable, this.renderer);
+    } else {
+      texture.image.close();
+      texture.image = bitmap;
+      texture.needsUpdate = true;
+    }
+
+    this.renderer.settings.errors.removeFromTopic(topic, CREATE_BITMAP_ERR);
+  };
+
+  private _handleTopicError = (topic: string, err: Error): void => {
+    this.renderer.settings.errors.addToTopic(
+      topic,
+      CREATE_BITMAP_ERR,
+      `createBitmap failed: ${err.message}`,
+    );
+  };
+
   // Get or create an image renderable for the imageTopic
   private _getImageRenderable(
     imageTopic: string,
@@ -615,9 +671,13 @@ export class Images extends SceneExtension<ImageRenderable> {
       | Partial<LayerSettingsImage>
       | undefined;
 
+    const messageTime = image
+      ? toNanoSec("header" in image ? image.header.stamp : image.timestamp)
+      : 0n;
     renderable = new ImageRenderable(imageTopic, this.renderer, {
       receiveTime,
-      messageTime: image ? toNanoSec("header" in image ? image.header.stamp : image.timestamp) : 0n,
+      messageTime,
+      firstMessageTime: messageTime,
       frameId: this.renderer.normalizeFrameId(frameId),
       pose: makePose(),
       settingsPath: ["topics", imageTopic],
