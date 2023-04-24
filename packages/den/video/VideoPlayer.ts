@@ -7,7 +7,7 @@ import EventEmitter from "eventemitter3";
 
 // foxglove-depcheck-used: @types/dom-webcodecs
 
-const MAX_DECODE_WAIT_MS = 30;
+const MAX_DECODE_WAIT_MS = 50;
 
 export type VideoPlayerEventTypes = {
   frame: (frame: VideoFrame) => void;
@@ -26,6 +26,7 @@ export type VideoPlayerEventTypes = {
 export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
   #decoderInit: VideoDecoderInit;
   #decoder: VideoDecoder;
+  #decoderConfig: VideoDecoderConfig | undefined;
   #hasKeyframe = false;
   #mutex = new Mutex();
   #pendingFrame: VideoFrame | undefined;
@@ -131,12 +132,19 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
 
     this.emit("debug", `Configuring VideoDecoder with ${JSON.stringify(decoderConfig)}`);
     this.#decoder.configure(decoderConfig);
+    this.#decoderConfig = decoderConfig;
+
     this.#mutex.release();
   }
 
   /** Returns true if the VideoDecoder is open and configured, ready for decoding. */
   public isInitialized(): boolean {
     return this.#decoder.state === "configured";
+  }
+
+  /** Returns true if the VideoDecoder has received a keyframe since the last reset. */
+  public hasKeyframe(): boolean {
+    return this.#hasKeyframe;
   }
 
   /**
@@ -222,6 +230,12 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
    */
   public resetForSeek(): void {
     this.#decoder.reset();
+    if (this.#decoderConfig) {
+      this.#decoder.configure(this.#decoderConfig);
+    }
+    this.#pendingFrame?.close();
+    this.#pendingFrame = undefined;
+    this.#hasKeyframe = false;
   }
 
   /**
