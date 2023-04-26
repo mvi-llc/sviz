@@ -8,6 +8,7 @@ import { fireEvent, screen } from "@storybook/testing-library";
 import MultiProvider from "@foxglove/studio-base/components/MultiProvider";
 import Panel from "@foxglove/studio-base/components/Panel";
 import PanelToolbar from "@foxglove/studio-base/components/PanelToolbar";
+import LayoutManagerContext from "@foxglove/studio-base/context/LayoutManagerContext";
 import LayoutStorageContext from "@foxglove/studio-base/context/LayoutStorageContext";
 import PanelCatalogContext, {
   PanelCatalog,
@@ -79,6 +80,14 @@ export const Basic: StoryObj = {
       <EventsProvider />,
       <PanelCatalogContext.Provider value={new MockPanelCatalog()} />,
       <MockCurrentLayoutProvider initialState={{ layout: "Fake" }} />,
+      <LayoutManagerContext.Provider
+        value={
+          new LayoutManager({
+            local: new MockLayoutStorage(LayoutManager.LOCAL_STORAGE_NAMESPACE, []),
+            remote: undefined,
+          })
+        }
+      />,
       /* eslint-enable react/jsx-key */
     ];
     return (

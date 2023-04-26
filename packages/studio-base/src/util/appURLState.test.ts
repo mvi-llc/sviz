@@ -49,6 +49,12 @@ describe("app state url parser", () => {
       });
     });
 
+    it("parses urls with only a layoutUrl", () => {
+      const url = urlBuilder();
+      url.searchParams.append("layoutUrl", "http://localhost/layout.json");
+      expect(parseAppURLState(url)?.layoutUrl).toBe("http://localhost/layout.json");
+    });
+
     it("parses data platform state urls", () => {
       const now: Time = { sec: new Date().getTime(), nsec: 0 };
       const time = toRFC3339String({ sec: now.sec + 500, nsec: 0 });
@@ -78,10 +84,11 @@ describe("app state url parser", () => {
 describe("app state encoding", () => {
   const baseURL = () => new URL("http://example.com");
 
-  it("encodes rosbag urls", () => {
+  it("encodes rosbag urls and layout urls", () => {
     expect(
       updateAppURLState(baseURL(), {
         layoutId: "123" as LayoutID,
+        layoutUrl: "http://localhost/layout.json",
         time: undefined,
         ds: "ros1-remote-bagfile",
         dsParams: {
@@ -89,7 +96,7 @@ describe("app state encoding", () => {
         },
       }).href,
     ).toEqual(
-      "http://example.com/?ds=ros1-remote-bagfile&ds.url=http%3A%2F%2Ffoxglove.dev%2Ftest.bag&layoutId=123",
+      "http://example.com/?ds=ros1-remote-bagfile&ds.url=http%3A%2F%2Ffoxglove.dev%2Ftest.bag&layoutId=123&layoutUrl=http%3A%2F%2Flocalhost%2Flayout.json",
     );
   });
 
