@@ -2674,7 +2674,7 @@ __metadata:
   dependencies:
     "@types/dom-webcodecs": 0.1.7
     async-mutex: 0.4.0
-    eventemitter3: 5.0.0
+    eventemitter3: 5.0.1
     xacro-parser: 0.3.9
   languageName: unknown
   linkType: soft
@@ -11550,13 +11550,6 @@ __metadata:
   version: 6.4.5
   resolution: "eventemitter2@npm:6.4.5"
   checksum: 84504f9cf0cc30205cdd46783fe9df3733435e5097f13070b678023110b5ef07847651808ae280cd94c42cd5976880211c7a40321a8ff8fa56f7c5f9c5c11960
-  languageName: node
-  linkType: hard
-
-"eventemitter3@npm:5.0.0":
-  version: 5.0.0
-  resolution: "eventemitter3@npm:5.0.0"
-  checksum: b974bafbab860e0a5bbb21add4c4e82f9d5691c583c03f2e4c5d44a2d6c4556d79223621bdcfc6c8e14366a4af9df6b5ea9d6caf65fbffc80b66f3e1dceacbc9
   languageName: node
   linkType: hard
 
