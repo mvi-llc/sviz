@@ -4,14 +4,13 @@
 
 export const panels = {
   "3D": "3D",
-  newImage: "🚧 Image",
   "3DPanelDescription": "Display markers, camera images, meshes, URDFs, and more in a 3D scene.",
-  "3DPanelSettingsOnboardingTooltip": "Open settings to configure topics and layers.",
   dataSourceInfo: "Data Source Info",
   dataSourceInfoDescription: "View details like topics and timestamps for the current data source.",
   gauge: "Gauge",
   gaugeDescription: "Display a colored gauge based on a continuous value.",
   image: "Image",
+  imageLegacy: "Image (Legacy)",
   imageDescription: "Display annotated images.",
   indicator: "Indicator",
   indicatorDescription: "Display a colored and/or textual indicator based on a threshold value.",

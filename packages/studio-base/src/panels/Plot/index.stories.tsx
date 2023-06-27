@@ -261,7 +261,7 @@ export const fixture: Fixture = {
   },
   frame: {
     "/some_topic/location": locationMessages.map(
-      (message): MessageEvent<unknown> => ({
+      (message): MessageEvent => ({
         topic: "/some_topic/location",
         receiveTime: message.header.stamp,
         message,
@@ -272,7 +272,7 @@ export const fixture: Fixture = {
     "/some_topic/location_subset": locationMessages
       .slice(locationMessages.length / 3, (locationMessages.length * 2) / 3)
       .map(
-        (message): MessageEvent<unknown> => ({
+        (message): MessageEvent => ({
           topic: "/some_topic/location_subset",
           receiveTime: message.header.stamp,
           message,
@@ -281,7 +281,7 @@ export const fixture: Fixture = {
         }),
       ),
     "/some_topic/state": otherStateMessages.map(
-      (message): MessageEvent<unknown> => ({
+      (message): MessageEvent => ({
         topic: "/some_topic/state",
         receiveTime: message.header.stamp,
         message,
@@ -303,7 +303,7 @@ export const fixture: Fixture = {
     // prior to rendering. If the dataset is not sorted properly, the plot is jumbled.
     "/some_topic/location_shuffled": shuffle(
       locationMessages.map(
-        (message): MessageEvent<unknown> => ({
+        (message): MessageEvent => ({
           topic: "/some_topic/location_shuffled",
           receiveTime: message.header.stamp,
           message,
@@ -487,10 +487,16 @@ export const LineGraphWithSettings: StoryObj = {
 
 export const LineGraphWithSettingsChinese: StoryObj = {
   ...LineGraphWithSettings,
-  play: LineGraphWithSettings.play,
   parameters: {
     ...LineGraphWithSettings.parameters,
     forceLanguage: "zh",
+  },
+};
+export const LineGraphWithSettingsJapanese: StoryObj = {
+  ...LineGraphWithSettings,
+  parameters: {
+    ...LineGraphWithSettings.parameters,
+    forceLanguage: "ja",
   },
 };
 
@@ -724,6 +730,46 @@ export const DisabledPath: StoryObj = {
   },
 };
 
+export const HiddenConnectingLines: StoryObj = {
+  render: function Story() {
+    const readySignal = useReadySignal({ count: 3 });
+    const pauseFrame = useCallback(() => readySignal, [readySignal]);
+
+    return (
+      <PlotWrapper
+        pauseFrame={pauseFrame}
+        config={{
+          ...exampleConfig,
+          paths: [
+            {
+              value: "/some_topic/location.pose.velocity",
+              enabled: true,
+              showLine: false,
+              timestampMethod: "receiveTime",
+            },
+            {
+              value: "/some_topic/location.pose.acceleration",
+              enabled: true,
+              showLine: true,
+              timestampMethod: "receiveTime",
+            },
+          ],
+        }}
+      />
+    );
+  },
+
+  name: "hidden connecting lines",
+
+  parameters: {
+    useReadySignal: true,
+  },
+
+  play: async (ctx) => {
+    await ctx.parameters.storyReady;
+  },
+};
+
 export const ReferenceLine: StoryObj = {
   render: function Story() {
     const readySignal = useReadySignal({ count: 3 });
@@ -784,6 +830,9 @@ export const WithMinAndMaxYValues: StoryObj = {
   },
 
   parameters: {
+    chromatic: {
+      delay: 500,
+    },
     colorScheme: "light",
     useReadySignal: true,
   },

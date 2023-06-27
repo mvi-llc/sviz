@@ -4,7 +4,7 @@
 
 import { TypeOptions } from "i18next";
 
-export const appSettings: TypeOptions["resources"]["appSettings"] = {
+export const appSettings: Partial<TypeOptions["resources"]["appSettings"]> = {
   settings: "设置",
   colorScheme: "配色方案",
   dark: "暗色",
@@ -38,8 +38,4 @@ export const appSettings: TypeOptions["resources"]["appSettings"] = {
   extensions: "扩展",
   about: "关于",
   noExperimentalFeatures: "目前没有实验性的功能。",
-  ros2NativeConnection: "ROS 2 的本地连接",
-  ros2NativeConnectionDescription: "启用已废弃的 ROS 2 本地连接器",
-  newImagePanel: "新图像面板",
-  newImagePanelDescription: "启用实验性图像面板。",
 };

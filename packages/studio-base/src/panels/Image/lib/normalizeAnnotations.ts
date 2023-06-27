@@ -5,6 +5,7 @@
 import { filterMap } from "@foxglove/den/collection";
 import { Time, fromNanoSec } from "@foxglove/rostime";
 import { ImageAnnotations, PointsAnnotationType } from "@foxglove/schemas";
+import { RosObject } from "@foxglove/studio-base/players/types";
 import {
   ImageMarker,
   ImageMarkerArray,
@@ -12,7 +13,7 @@ import {
 } from "@foxglove/studio-base/types/Messages";
 import { mightActuallyBePartial } from "@foxglove/studio-base/util/mightActuallyBePartial";
 
-import type { Annotation, PointsAnnotation } from "../types";
+import type { Annotation, PathKey, PointsAnnotation } from "../types";
 
 // Should mirror TextAnnotation.font_size default value
 const DEFAULT_FONT_SIZE = 12;
@@ -57,20 +58,12 @@ function foxglovePointTypeToStyle(
   return undefined;
 }
 
-function normalizeFoxgloveImageAnnotations(
-  message: Partial<ImageAnnotations>,
-): Annotation[] | undefined {
-  if (!message.circles && !message.points) {
-    return undefined;
-  }
-
-  if (message.circles?.length === 0 && message.points?.length === 0) {
-    return undefined;
-  }
-
+function normalizeFoxgloveImageAnnotations(message: Partial<ImageAnnotations>): Annotation[] {
   const annotations: Annotation[] = [];
 
-  for (const circle of message.circles ?? []) {
+  const circles = message.circles ?? [];
+  for (let i = 0; i < circles.length; i++) {
+    const circle = circles[i]!;
     const stamp = normalizeTimestamp(circle.timestamp);
     annotations.push({
       type: "circle",
@@ -80,9 +73,12 @@ function normalizeFoxgloveImageAnnotations(
       radius: circle.diameter / 2.0,
       thickness: circle.thickness,
       position: circle.position,
+      messagePath: ["circles", i],
     });
   }
-  for (const point of message.points ?? []) {
+  const points = message.points ?? [];
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i]!;
     const style = foxglovePointTypeToStyle(point.type);
     if (!style) {
       continue;
@@ -97,9 +93,12 @@ function normalizeFoxgloveImageAnnotations(
       outlineColor: mightActuallyBePartial(point).outline_color ?? { r: 1, g: 1, b: 1, a: 1 },
       thickness: mightActuallyBePartial(point).thickness ?? 1,
       fillColor: point.fill_color,
+      messagePath: ["points", i],
     });
   }
-  for (const text of message.texts ?? []) {
+  const texts = message.texts ?? [];
+  for (let i = 0; i < texts.length; i++) {
+    const text = texts[i]!;
     const stamp = normalizeTimestamp(text.timestamp);
     annotations.push({
       type: "text",
@@ -110,6 +109,7 @@ function normalizeFoxgloveImageAnnotations(
       backgroundColor: text.background_color,
       fontSize: text.font_size,
       padding: (text.font_size / DEFAULT_FONT_SIZE) * DEFAULT_PADDING,
+      messagePath: ["texts", i],
     });
   }
 
@@ -120,8 +120,8 @@ function normalizeTimestamp(stamp: Time | bigint): Time {
   return typeof stamp === "bigint" ? fromNanoSec(stamp) : stamp;
 }
 
-function normalizeRosImageMarkerArray(message: ImageMarkerArray): Annotation[] | undefined {
-  return filterMap(message.markers, (marker) => normalizeRosImageMarker(marker));
+function normalizeRosImageMarkerArray(message: ImageMarkerArray): Annotation[] {
+  return filterMap(message.markers, (marker, i) => normalizeRosImageMarker(marker, ["markers", i]));
 }
 
 function imageMarkerTypeToStyle(
@@ -143,7 +143,10 @@ function imageMarkerTypeToStyle(
   }
 }
 
-function normalizeRosImageMarker(message: ImageMarker): Annotation | undefined {
+function normalizeRosImageMarker(
+  message: ImageMarker,
+  messagePath: PathKey[],
+): Annotation | undefined {
   switch (message.type) {
     case ImageMarkerType.CIRCLE:
       return {
@@ -154,6 +157,7 @@ function normalizeRosImageMarker(message: ImageMarker): Annotation | undefined {
         radius: message.scale,
         thickness: 1.0,
         position: message.position,
+        messagePath,
       };
     case ImageMarkerType.TEXT:
       return {
@@ -165,6 +169,7 @@ function normalizeRosImageMarker(message: ImageMarker): Annotation | undefined {
         backgroundColor: message.filled ? message.fill_color : undefined,
         fontSize: message.scale * DEFAULT_FONT_SIZE,
         padding: DEFAULT_PADDING * message.scale,
+        messagePath,
       };
     case ImageMarkerType.POINTS:
       return {
@@ -176,6 +181,7 @@ function normalizeRosImageMarker(message: ImageMarker): Annotation | undefined {
         outlineColor: message.outline_color,
         thickness: message.scale,
         fillColor: message.fill_color,
+        messagePath,
       };
     case ImageMarkerType.LINE_LIST:
     case ImageMarkerType.LINE_STRIP:
@@ -190,6 +196,7 @@ function normalizeRosImageMarker(message: ImageMarker): Annotation | undefined {
         outlineColor: message.outline_color,
         thickness: message.scale,
         fillColor: message.filled ? message.fill_color : undefined,
+        messagePath,
       };
     }
   }
@@ -203,10 +210,7 @@ function toPOD(message: unknown): unknown {
     : message;
 }
 
-function normalizeAnnotations(
-  maybeLazyMessage: unknown,
-  datatype: string,
-): Annotation[] | undefined {
+function normalizeAnnotations(maybeLazyMessage: unknown, datatype: string): Annotation[] {
   // The panel may send the annotations to a web worker, for this we need
   const message = toPOD(maybeLazyMessage);
 
@@ -216,11 +220,8 @@ function normalizeAnnotations(
     case "visualization_msgs/ImageMarker":
     case "visualization_msgs/msg/ImageMarker":
     case "ros.visualization_msgs.ImageMarker": {
-      const normalized = normalizeRosImageMarker(message as ImageMarker);
-      if (normalized) {
-        return [normalized];
-      }
-      break;
+      const normalized = normalizeRosImageMarker(message as ImageMarker, []);
+      return normalized ? [normalized] : [];
     }
     // marker arrays
     case "foxglove_msgs/ImageMarkerArray":
@@ -241,8 +242,18 @@ function normalizeAnnotations(
       return normalizeFoxgloveImageAnnotations(message as ImageAnnotations);
     }
   }
-
-  return undefined;
+  return [];
 }
 
-export { normalizeAnnotations };
+/** Only used for getting details to display from original message */
+function getAnnotationAtPath(message: unknown, path: PathKey[]): RosObject {
+  let value: unknown = message;
+  for (const key of path) {
+    if (key in (value as Record<PathKey, unknown>)) {
+      value = (value as { [key: string]: unknown })[key];
+    }
+  }
+  return value as RosObject;
+}
+
+export { normalizeAnnotations, getAnnotationAtPath };

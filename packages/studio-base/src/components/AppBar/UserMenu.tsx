@@ -2,7 +2,14 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Divider, Menu, MenuItem, PopoverPosition, PopoverReference } from "@mui/material";
+import {
+  Divider,
+  Menu,
+  MenuItem,
+  PaperProps,
+  PopoverPosition,
+  PopoverReference,
+} from "@mui/material";
 import { useSnackbar } from "notistack";
 import { useCallback } from "react";
 import { makeStyles } from "tss-react/mui";
@@ -14,7 +21,7 @@ import {
   useCurrentUser,
   useCurrentUserType,
 } from "@foxglove/studio-base/context/CurrentUserContext";
-import { useWorkspaceActions } from "@foxglove/studio-base/context/WorkspaceContext";
+import { useWorkspaceActions } from "@foxglove/studio-base/context/Workspace/useWorkspaceActions";
 import { useConfirm } from "@foxglove/studio-base/hooks/useConfirm";
 import { AppEvent } from "@foxglove/studio-base/services/IAnalytics";
 
@@ -50,7 +57,7 @@ export function UserMenu({
   const { enqueueSnackbar } = useSnackbar();
   const [confirm, confirmModal] = useConfirm();
 
-  const { prefsDialogActions } = useWorkspaceActions();
+  const { dialogActions } = useWorkspaceActions();
 
   const beginSignOut = useCallback(async () => {
     try {
@@ -73,7 +80,7 @@ export function UserMenu({
   }, [beginSignOut, confirm]);
 
   const onSignInClick = useCallback(() => {
-    void analytics.logEvent(AppEvent.DIALOG_CLICK_CTA, {
+    void analytics.logEvent(AppEvent.APP_BAR_CLICK_CTA, {
       user: currentUserType,
       cta: "sign-in",
     });
@@ -86,9 +93,9 @@ export function UserMenu({
         user: currentUserType,
         cta: "app-settings-dialog",
       });
-      prefsDialogActions.open(tab);
+      dialogActions.preferences.open(tab);
     },
-    [analytics, currentUserType, prefsDialogActions],
+    [analytics, currentUserType, dialogActions.preferences],
   );
 
   const onProfileClick = useCallback(() => {
@@ -108,7 +115,7 @@ export function UserMenu({
   }, [analytics, currentUserType]);
 
   const onSlackClick = useCallback(() => {
-    void analytics.logEvent(AppEvent.DIALOG_CLICK_CTA, {
+    void analytics.logEvent(AppEvent.APP_BAR_CLICK_CTA, {
       user: currentUserType,
       cta: "join-slack",
     });
@@ -122,11 +129,16 @@ export function UserMenu({
         anchorReference={anchorReference}
         anchorPosition={anchorPosition}
         disablePortal={disablePortal}
-        id="account-menu"
+        id="user-menu"
         open={open}
         onClose={handleClose}
         onClick={handleClose}
         MenuListProps={{ className: classes.menuList, dense: true }}
+        PaperProps={
+          {
+            "data-tourid": "user-menu",
+          } as Partial<PaperProps & { "data-tourid"?: string }>
+        }
       >
         {currentUser && <MenuItem disabled>{currentUser.email}</MenuItem>}
         <MenuItem onClick={() => onSettingsClick()}>Settings</MenuItem>

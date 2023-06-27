@@ -19,6 +19,7 @@ import { useMemo, useState } from "react";
 import { makeStyles } from "tss-react/mui";
 
 import { DirectTopicStatsUpdater } from "@foxglove/studio-base/components/DirectTopicStatsUpdater";
+import EmptyState from "@foxglove/studio-base/components/EmptyState";
 import {
   MessagePipelineContext,
   useMessagePipeline,
@@ -92,6 +93,11 @@ const useStyles = makeStyles()((theme) => ({
       border: "none",
     },
   },
+  aliasedTopicName: {
+    color: theme.palette.primary.main,
+    display: "block",
+    textAlign: "start",
+  },
   startAdornment: {
     display: "flex",
   },
@@ -135,7 +141,16 @@ function TopicListItem({
       }
     >
       <ListItemText
-        primary={<HighlightChars str={topic.name} indices={positions} />}
+        primary={
+          <>
+            <HighlightChars str={topic.name} indices={positions} />
+            {topic.aliasedFromName && (
+              <Typography variant="caption" className={classes.aliasedTopicName}>
+                from {topic.aliasedFromName}
+              </Typography>
+            )}
+          </>
+        }
         primaryTypographyProps={{ noWrap: true, title: topic.name }}
         secondary={
           topic.schemaName == undefined ? (
@@ -182,23 +197,11 @@ export function TopicList(): JSX.Element {
   );
 
   if (playerPresence === PlayerPresence.NOT_PRESENT) {
-    return (
-      <Stack flex="auto" fullHeight alignItems="center" gap={1} justifyContent="center">
-        <Typography align="center" variant="subtitle2" color="text.secondary">
-          No data source selected
-        </Typography>
-      </Stack>
-    );
+    return <EmptyState>No data source selected</EmptyState>;
   }
 
   if (playerPresence === PlayerPresence.ERROR) {
-    return (
-      <Stack flex="auto" padding={2} fullHeight alignItems="center" justifyContent="center">
-        <Typography align="center" color="text.secondary">
-          An error occurred
-        </Typography>
-      </Stack>
-    );
+    return <EmptyState>An error occurred</EmptyState>;
   }
 
   if (playerPresence === PlayerPresence.INITIALIZING) {
@@ -271,25 +274,12 @@ export function TopicList(): JSX.Element {
           })}
         </List>
       ) : (
-        <Stack flex="auto" padding={2} fullHeight alignItems="center" justifyContent="center">
-          {playerPresence === PlayerPresence.PRESENT && filterText && (
-            <Typography align="center" color="text.secondary">
-              No topics or datatypes matching
-              <br />
-              {`“${filterText}”`}
-            </Typography>
-          )}
-          {playerPresence === PlayerPresence.PRESENT && (
-            <Typography align="center" color="text.secondary">
-              No topics available
-            </Typography>
-          )}
-          {playerPresence === PlayerPresence.RECONNECTING && (
-            <Typography align="center" color="text.secondary">
-              Waiting for connection
-            </Typography>
-          )}
-        </Stack>
+        <EmptyState>
+          {playerPresence === PlayerPresence.PRESENT && filterText
+            ? `No topics or datatypes matching \n “${filterText}”`
+            : "No topics available. "}
+          {playerPresence === PlayerPresence.RECONNECTING && "Waiting for connection"}
+        </EmptyState>
       )}
       <DirectTopicStatsUpdater interval={6} />
     </>
