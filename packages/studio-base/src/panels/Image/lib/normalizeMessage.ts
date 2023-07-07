@@ -4,7 +4,7 @@
 
 import { fromNanoSec } from "@foxglove/rostime";
 import { FoxgloveMessages } from "@foxglove/studio-base/types/FoxgloveMessages";
-import { CompressedImage, Image } from "@foxglove/studio-base/types/Messages";
+import { CompressedImage, CompressedVideo, Image } from "@foxglove/studio-base/types/Messages";
 
 import { NormalizedImageMessage } from "../types";
 
@@ -22,6 +22,9 @@ export const NORMALIZABLE_IMAGE_DATATYPES = [
   "foxglove_msgs/msg/RawImage",
   "foxglove_msgs/CompressedImage",
   "foxglove_msgs/msg/CompressedImage",
+  "foxglove.CompressedVideo",
+  "foxglove_msgs/CompressedVideo",
+  "foxglove_msgs/msg/CompressedVideo",
 ] as const;
 
 /**
@@ -92,6 +95,27 @@ export function normalizeImageMessage(
         stamp,
         format: typedMessage.format,
         data: typedMessage.data,
+      };
+    }
+    case "foxglove_msgs/CompressedVideo":
+    case "foxglove_msgs/msg/CompressedVideo":
+    case "foxglove.CompressedVideo": {
+      const typedMessage = message as CompressedVideo;
+      const stamp =
+        typeof typedMessage.timestamp === "bigint"
+          ? fromNanoSec(typedMessage.timestamp)
+          : typedMessage.timestamp;
+      const metadata = new Map<string, string>();
+      for (const { key, value } of typedMessage.metadata) {
+        metadata.set(key, value);
+      }
+
+      return {
+        type: "video",
+        stamp,
+        data: typedMessage.data,
+        keyframe: typedMessage.keyframe,
+        metadata,
       };
     }
   }

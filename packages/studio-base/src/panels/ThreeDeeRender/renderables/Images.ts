@@ -445,9 +445,13 @@ export class Images extends SceneExtension<ImageRenderable> {
       | Partial<LayerSettingsImage>
       | undefined;
 
+    const messageTime = image
+      ? toNanoSec("header" in image ? image.header.stamp : image.timestamp)
+      : 0n;
     renderable = new ImageRenderable(imageTopic, this.renderer, {
       receiveTime,
-      messageTime: image ? toNanoSec("header" in image ? image.header.stamp : image.timestamp) : 0n,
+      messageTime,
+      firstMessageTime: messageTime,
       frameId: this.renderer.normalizeFrameId(frameId),
       pose: makePose(),
       settingsPath: ["topics", imageTopic],

@@ -269,6 +269,21 @@ export type CompressedImage = Readonly<
   }
 >;
 
+// NOTE: Remove this and the CompressedVideo definition when it has landed in
+// @foxglove/schemas
+export type KeyValuePair = Readonly<{
+  key: string;
+  value: string;
+}>;
+
+export type CompressedVideo = Readonly<{
+  timestamp: Time;
+  frame_id: string;
+  data: Uint8Array;
+  keyframe: boolean;
+  metadata: readonly KeyValuePair[];
+}>;
+
 export type VelodynePacket = Readonly<{
   stamp: Time;
   data: Uint8Array; // 1206 bytes

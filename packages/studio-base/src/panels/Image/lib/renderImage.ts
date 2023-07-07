@@ -188,6 +188,11 @@ function decodeMessageToBitmap(
       }
       return self.createImageBitmap(image);
     }
+    case "video": {
+      // Create an empty bitmap and return it
+      const image = new ImageData(64, 64);
+      return self.createImageBitmap(image);
+    }
   }
 }
 

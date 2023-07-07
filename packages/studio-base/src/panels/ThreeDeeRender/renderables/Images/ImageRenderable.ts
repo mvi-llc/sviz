@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { assert } from "ts-essentials";
 
 import { PinholeCameraModel } from "@foxglove/den/image";
+import { VideoPlayer } from "@foxglove/den/video";
 import { toNanoSec } from "@foxglove/rostime";
 import { IRenderer } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
 import { BaseUserData, Renderable } from "@foxglove/studio-base/panels/ThreeDeeRender/Renderable";
@@ -44,6 +45,7 @@ export const IMAGE_RENDERABLE_DEFAULT_SETTINGS: ImageRenderableSettings = {
 export type ImageUserData = BaseUserData & {
   topic: string;
   settings: ImageRenderableSettings;
+  firstMessageTime: bigint | undefined;
   cameraInfo: CameraInfo | undefined;
   cameraModel: PinholeCameraModel | undefined;
   image: AnyImage | undefined;
@@ -54,6 +56,12 @@ export type ImageUserData = BaseUserData & {
 };
 
 export class ImageRenderable extends Renderable<ImageUserData> {
+  // A cache for decompressed image data, where the size is not known ahead of
+  // time and may change between messages.
+  public imageDataCache = { data: new Uint8ClampedArray(0) };
+  // A lazily instantiated player for compressed video
+  public videoPlayer: VideoPlayer | undefined;
+
   // Make sure that everything is build the first time we render
   // set when camera info or image changes
   #geometryNeedsUpdate = true;
@@ -203,7 +211,8 @@ export class ImageRenderable extends Renderable<ImageUserData> {
     assert(this.userData.image, "Image must be set before texture can be updated or created");
     const image = this.userData.image;
     // Create or update the bitmap texture
-    if ("format" in image) {
+    if ("format" in image || "keyframe" in image) {
+      // CompressedImage or CompressedVideo
       const bitmap = this.#bitmap;
       if (!bitmap) {
         return;
@@ -226,6 +235,7 @@ export class ImageRenderable extends Renderable<ImageUserData> {
         canvasTexture.needsUpdate = true;
       }
     } else {
+      // RawImage
       const { width, height } = image;
       let dataTexture = this.userData.texture;
       if (

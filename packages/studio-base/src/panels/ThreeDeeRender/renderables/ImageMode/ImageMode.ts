@@ -45,7 +45,10 @@ import {
 } from "../../ros";
 import { topicIsConvertibleToSchema } from "../../topicIsConvertibleToSchema";
 import { ICameraHandler } from "../ICameraHandler";
-import { decodeCompressedImageToBitmap } from "../Images/decodeImage";
+import {
+  decodeCompressedImageToBitmap,
+  decodeCompressedVideoToBitmap,
+} from "../Images/decodeImage";
 import { getTopicMatchPrefix, sortPrefixMatchesToFront } from "../Images/topicPrefixMatching";
 
 const IMAGE_TOPIC_PATH = ["imageMode", "imageTopic"];
@@ -581,52 +584,92 @@ export class ImageMode
 
     renderable.name = topic;
     renderable.setImage(image);
-    const isCompressedImage = "format" in image;
 
-    if (!isCompressedImage) {
+    if ("width" in image) {
       // Raw Images don't need to be decoded asynchronously
       if (this.#fallbackCameraModelActive()) {
         this.#updateFallbackCameraModel(image, getFrameIdFromImage(image));
       }
       renderable.update();
       return;
+    } else if ("format" in image) {
+      // CompressedImage
+      const seq = ++this.#receivedImageSequenceNumber;
+      decodeCompressedImageToBitmap(image)
+        .then((maybeBitmap) => {
+          const prevRenderable = renderable;
+          const currentRenderable = this.#imageRenderable;
+          // prevent setting and updating disposed renderables
+          if (currentRenderable !== prevRenderable) {
+            return;
+          }
+          // prevent displaying an image older than the one currently displayed
+          if (this.#displayedImageSequenceNumber > seq) {
+            return;
+          }
+          this.#displayedImageSequenceNumber = seq;
+          this.renderer.settings.errors.remove(IMAGE_TOPIC_PATH, CREATE_BITMAP_ERR_KEY);
+          renderable.setBitmap(maybeBitmap);
+          if (this.#fallbackCameraModelActive()) {
+            this.#updateFallbackCameraModel(maybeBitmap, getFrameIdFromImage(image));
+          }
+
+          renderable.update();
+          this.renderer.queueAnimationFrame();
+        })
+        .catch((err) => {
+          const prevRenderable = renderable;
+          const currentRenderable = this.#imageRenderable;
+          if (currentRenderable !== prevRenderable) {
+            return;
+          }
+          this.renderer.settings.errors.add(
+            IMAGE_TOPIC_PATH,
+            CREATE_BITMAP_ERR_KEY,
+            `Error creating bitmap: ${err.message}`,
+          );
+        });
+    } else if ("keyframe" in image) {
+      // CompressedVideo
+      const seq = ++this.#receivedImageSequenceNumber;
+      decodeCompressedVideoToBitmap(renderable, image)
+        .then((maybeBitmap) => {
+          if (!maybeBitmap) {
+            return;
+          }
+          const prevRenderable = renderable;
+          const currentRenderable = this.#imageRenderable;
+          // prevent setting and updating disposed renderables
+          if (currentRenderable !== prevRenderable) {
+            return;
+          }
+          // prevent displaying an image older than the one currently displayed
+          if (this.#displayedImageSequenceNumber > seq) {
+            return;
+          }
+          this.#displayedImageSequenceNumber = seq;
+          this.renderer.settings.errors.remove(IMAGE_TOPIC_PATH, CREATE_BITMAP_ERR_KEY);
+          renderable.setBitmap(maybeBitmap);
+          if (this.#fallbackCameraModelActive()) {
+            this.#updateFallbackCameraModel(maybeBitmap, getFrameIdFromImage(image));
+          }
+
+          renderable.update();
+          this.renderer.queueAnimationFrame();
+        })
+        .catch((err) => {
+          const prevRenderable = renderable;
+          const currentRenderable = this.#imageRenderable;
+          if (currentRenderable !== prevRenderable) {
+            return;
+          }
+          this.renderer.settings.errors.add(
+            IMAGE_TOPIC_PATH,
+            CREATE_BITMAP_ERR_KEY,
+            `Error decoding video: ${err.message}`,
+          );
+        });
     }
-
-    const seq = ++this.#receivedImageSequenceNumber;
-    decodeCompressedImageToBitmap(image)
-      .then((maybeBitmap) => {
-        const prevRenderable = renderable;
-        const currentRenderable = this.#imageRenderable;
-        // prevent setting and updating disposed renderables
-        if (currentRenderable !== prevRenderable) {
-          return;
-        }
-        // prevent displaying an image older than the one currently displayed
-        if (this.#displayedImageSequenceNumber > seq) {
-          return;
-        }
-        this.#displayedImageSequenceNumber = seq;
-        this.renderer.settings.errors.remove(IMAGE_TOPIC_PATH, CREATE_BITMAP_ERR_KEY);
-        renderable.setBitmap(maybeBitmap);
-        if (this.#fallbackCameraModelActive()) {
-          this.#updateFallbackCameraModel(maybeBitmap, getFrameIdFromImage(image));
-        }
-
-        renderable.update();
-        this.renderer.queueAnimationFrame();
-      })
-      .catch((err) => {
-        const prevRenderable = renderable;
-        const currentRenderable = this.#imageRenderable;
-        if (currentRenderable !== prevRenderable) {
-          return;
-        }
-        this.renderer.settings.errors.add(
-          IMAGE_TOPIC_PATH,
-          CREATE_BITMAP_ERR_KEY,
-          `Error creating bitmap: ${err.message}`,
-        );
-      });
   };
 
   #updateFallbackCameraModel = (
@@ -672,9 +715,13 @@ export class ImageMode
       // planarProjectionFactor must be 1 to avoid imprecise projection due to small number of grid subdivisions
       planarProjectionFactor: 1,
     };
+    const messageTime = image
+      ? toNanoSec("header" in image ? image.header.stamp : image.timestamp)
+      : 0n;
     renderable = new ImageRenderable(topicName, this.renderer, {
       receiveTime,
-      messageTime: image ? toNanoSec("header" in image ? image.header.stamp : image.timestamp) : 0n,
+      messageTime,
+      firstMessageTime: messageTime,
       frameId: this.renderer.normalizeFrameId(frameId),
       pose: makePose(),
       settingsPath: IMAGE_TOPIC_PATH,

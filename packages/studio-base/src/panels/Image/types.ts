@@ -169,4 +169,15 @@ export type CompressedImageMessage = {
   data: Uint8Array;
 };
 
-export type NormalizedImageMessage = RawImageMessage | CompressedImageMessage;
+export type CompressedVideoMessage = {
+  type: "video";
+  stamp: { sec: number; nsec: number };
+  keyframe: boolean;
+  metadata: Map<string, string>;
+  data: Uint8Array;
+};
+
+export type NormalizedImageMessage =
+  | RawImageMessage
+  | CompressedImageMessage
+  | CompressedVideoMessage;

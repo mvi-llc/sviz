@@ -17,9 +17,11 @@ import {
   decodeYUV,
   decodeYUYV,
 } from "@foxglove/den/image";
+import { toMicroSec } from "@foxglove/rostime";
 import { RawImage } from "@foxglove/schemas";
 
-import { CompressedImageTypes } from "./ImageTypes";
+import { ImageRenderable } from "./ImageRenderable";
+import { CompressedImageTypes, CompressedVideo } from "./ImageTypes";
 import { Image as RosImage } from "../../ros";
 
 export async function decodeCompressedImageToBitmap(
@@ -28,6 +30,37 @@ export async function decodeCompressedImageToBitmap(
 ): Promise<ImageBitmap> {
   const bitmapData = new Blob([image.data], { type: `image/${image.format}` });
   return await createImageBitmap(bitmapData, { resizeWidth });
+}
+
+export async function decodeCompressedVideoToBitmap(
+  renderable: ImageRenderable,
+  frameMsg: CompressedVideo,
+  resizeWidth?: number,
+): Promise<ImageBitmap | undefined> {
+  const videoPlayer = renderable.videoPlayer;
+  if (
+    videoPlayer?.isInitialized() !== true ||
+    (!videoPlayer.hasKeyframe() && !frameMsg.keyframe) ||
+    renderable.userData.firstMessageTime == undefined
+  ) {
+    return undefined;
+  }
+
+  // Get the timestamp of this frame as microseconds relative to the first frame
+  const firstTimestampMicros = Number(renderable.userData.firstMessageTime / 1000n);
+  const timestampMicros = toMicroSec(frameMsg.timestamp) - firstTimestampMicros;
+
+  const videoFrame = await videoPlayer.decode(
+    frameMsg.data,
+    timestampMicros,
+    frameMsg.keyframe ? "key" : "delta",
+  );
+  if (videoFrame) {
+    const imageBitmap = await self.createImageBitmap(videoFrame, { resizeWidth });
+    videoFrame.close();
+    return imageBitmap;
+  }
+  return undefined;
 }
 
 export type RawImageOptions = {
