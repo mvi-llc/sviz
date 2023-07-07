@@ -8,7 +8,6 @@ import { PropsWithChildren } from "react";
 
 import { useSessionStorageValue } from "@foxglove/hooks";
 import MockMessagePipelineProvider from "@foxglove/studio-base/components/MessagePipeline/MockMessagePipelineProvider";
-import { useCurrentLayoutActions } from "@foxglove/studio-base/context/CurrentLayoutContext";
 import CurrentUserContext, { User } from "@foxglove/studio-base/context/CurrentUserContext";
 import PlayerSelectionContext, {
   IDataSourceFactory,
@@ -65,7 +64,6 @@ function makeWrapper(initialProps: WrapperProps) {
 
 describe("Initial deep link state", () => {
   const selectSource = jest.fn();
-  const setSelectedLayoutId = jest.fn();
   const emptyPlayerSelection = {
     selectSource,
     selectRecent: () => {},
@@ -76,9 +74,7 @@ describe("Initial deep link state", () => {
 
   beforeEach(() => {
     (useSessionStorageValue as jest.Mock).mockReturnValue([LaunchPreferenceValue.WEB, jest.fn()]);
-    (useCurrentLayoutActions as jest.Mock).mockReturnValue({ setSelectedLayoutId });
     selectSource.mockClear();
-    setSelectedLayoutId.mockClear();
   });
 
   it("doesn't select a source without ds params", () => {
@@ -100,7 +96,6 @@ describe("Initial deep link state", () => {
       params: undefined,
       type: "connection",
     });
-    expect(setSelectedLayoutId).not.toHaveBeenCalled();
   });
 
   it("selects a connection datasource from the link", () => {
@@ -108,7 +103,7 @@ describe("Initial deep link state", () => {
     renderHook(
       () =>
         useInitialDeepLinkState([
-          "http://localhost:8080/?ds=rosbridge-websocket&ds.url=ws%3A%2F%2Flocalhost%3A9090&layoutId=a288e116-d177-4b57-8f30-6ada61919638",
+          "http://localhost:8080/?ds=rosbridge-websocket&ds.url=ws%3A%2F%2Flocalhost%3A9090",
         ]),
       { wrapper },
     );
@@ -117,7 +112,6 @@ describe("Initial deep link state", () => {
       params: { url: "ws://localhost:9090" },
       type: "connection",
     });
-    expect(setSelectedLayoutId).toHaveBeenCalledWith("a288e116-d177-4b57-8f30-6ada61919638");
   });
 
   it("waits for a current user to select a source with currentUserRequired=true", () => {
@@ -138,10 +132,7 @@ describe("Initial deep link state", () => {
       },
     });
     const { result, rerender } = renderHook(
-      () =>
-        useInitialDeepLinkState([
-          "https://studio.foxglove.dev/?ds=foo-with-user&ds.bar=baz&layoutId=12345",
-        ]),
+      () => useInitialDeepLinkState(["https://studio.foxglove.dev/?ds=foo-with-user&ds.bar=baz"]),
       { wrapper },
     );
 
@@ -176,7 +167,55 @@ describe("Initial deep link state", () => {
       params: { bar: "baz" },
       type: "connection",
     });
+  });
 
-    expect(setSelectedLayoutId).toHaveBeenCalledWith("12345");
+  it("recognizes org mismatches to set userSwitchRequired correctly", () => {
+    const { wrapper, setWrapperProps } = makeWrapper({
+      currentUser: undefined,
+      playerSelection: emptyPlayerSelection,
+    });
+
+    const correctOrgSlug = "my-org";
+
+    const { result, rerender } = renderHook(
+      () => useInitialDeepLinkState(["https://studio.foxglove.dev/?org=" + correctOrgSlug]),
+      { wrapper },
+    );
+
+    expect(result.current.currentUserRequired).toBeFalsy();
+    expect(result.current.userSwitchRequired).toBeFalsy();
+
+    expect(selectSource).not.toHaveBeenCalled();
+
+    const org: User["org"] = {
+      id: "wrong-orgid",
+      slug: "wrong-org",
+      displayName: "Fake Org",
+      isEnterprise: false,
+      allowsUploads: false,
+      supportsEdgeSites: false,
+    };
+
+    const currentUser = {
+      id: "id",
+      email: "email",
+      orgPaid: true,
+      orgId: org.id,
+      orgDisplayName: org.displayName,
+      orgSlug: org.slug,
+      org,
+    };
+
+    setWrapperProps({ currentUser });
+    rerender();
+
+    expect(result.current.currentUserRequired).toBeFalsy();
+    expect(result.current.userSwitchRequired).toBeTruthy();
+
+    setWrapperProps({ currentUser: { ...currentUser, org: { ...org, slug: correctOrgSlug } } });
+    rerender();
+
+    expect(result.current.currentUserRequired).toBeFalsy();
+    expect(result.current.userSwitchRequired).toBeFalsy();
   });
 });

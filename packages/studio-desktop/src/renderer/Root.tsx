@@ -25,7 +25,6 @@ import {
 
 import { DesktopExtensionLoader } from "./services/DesktopExtensionLoader";
 import { NativeAppMenu } from "./services/NativeAppMenu";
-import NativeStorageLayoutStorage from "./services/NativeStorageLayoutStorage";
 import { NativeWindow } from "./services/NativeWindow";
 import { Desktop, NativeMenuBridge, Storage } from "../common/types";
 
@@ -55,7 +54,6 @@ export default function Root(props: {
     };
   }, [appConfiguration]);
 
-  const layoutStorage = useMemo(() => new NativeStorageLayoutStorage(storageBridge), []);
   const [extensionLoaders] = useState(() => [
     new IdbExtensionLoader("org"),
     new DesktopExtensionLoader(desktopBridge),
@@ -102,7 +100,6 @@ export default function Root(props: {
   const onMaximizeWindow = useCallback(() => nativeWindow.maximize(), [nativeWindow]);
   const onUnmaximizeWindow = useCallback(() => nativeWindow.unmaximize(), [nativeWindow]);
   const onCloseWindow = useCallback(() => nativeWindow.close(), [nativeWindow]);
-  const onReloadWindow = useCallback(() => nativeWindow.reload(), [nativeWindow]);
 
   useEffect(() => {
     const onEnterFullScreen = () => setFullScreen(true);
@@ -127,7 +124,6 @@ export default function Root(props: {
         deepLinks={deepLinks}
         dataSources={dataSources}
         appConfiguration={appConfiguration}
-        layoutStorage={layoutStorage}
         extensionLoaders={extensionLoaders}
         nativeAppMenu={nativeAppMenu}
         nativeWindow={nativeWindow}
@@ -140,7 +136,6 @@ export default function Root(props: {
         onMaximizeWindow={onMaximizeWindow}
         onUnmaximizeWindow={onUnmaximizeWindow}
         onCloseWindow={onCloseWindow}
-        onReloadWindow={onReloadWindow}
         extraProviders={props.extraProviders}
       />
     </>

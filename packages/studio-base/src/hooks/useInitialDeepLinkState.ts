@@ -9,7 +9,6 @@ import {
   MessagePipelineContext,
   useMessagePipeline,
 } from "@foxglove/studio-base/components/MessagePipeline";
-import { useCurrentLayoutActions } from "@foxglove/studio-base/context/CurrentLayoutContext";
 import { useCurrentUser } from "@foxglove/studio-base/context/CurrentUserContext";
 import { EventsStore, useEvents } from "@foxglove/studio-base/context/EventsContext";
 import { usePlayerSelection } from "@foxglove/studio-base/context/PlayerSelectionContext";
@@ -70,33 +69,6 @@ function useSyncSourceFromUrl(
     setUnappliedSourceArgs,
   ]);
 }
-function useSyncLayoutFromUrl(
-  targetUrlState: AppURLState | undefined,
-  { currentUserRequired }: { currentUserRequired: boolean },
-) {
-  const { setSelectedLayoutId } = useCurrentLayoutActions();
-  const playerPresence = useMessagePipeline(selectPlayerPresence);
-  const [unappliedLayoutArgs, setUnappliedLayoutArgs] = useState(
-    targetUrlState ? { layoutId: targetUrlState.layoutId } : undefined,
-  );
-  // Select layout from URL.
-  useEffect(() => {
-    if (!unappliedLayoutArgs?.layoutId) {
-      return;
-    }
-
-    // If our datasource requires a current user then wait until the player is
-    // available to load the layout since we may need to sync layouts first and
-    // that's only possible after the user has logged in.
-    if (currentUserRequired && playerPresence !== PlayerPresence.PRESENT) {
-      return;
-    }
-
-    log.debug(`Initializing layout from url: ${unappliedLayoutArgs.layoutId}`);
-    setSelectedLayoutId(unappliedLayoutArgs.layoutId);
-    setUnappliedLayoutArgs({ layoutId: undefined });
-  }, [currentUserRequired, playerPresence, setSelectedLayoutId, unappliedLayoutArgs?.layoutId]);
-}
 
 function useSyncTimeFromUrl(targetUrlState: AppURLState | undefined) {
   const seekPlayback = useMessagePipeline(selectSeek);
@@ -131,6 +103,7 @@ let useInitialDeepLinkStateMounted = false;
  */
 export function useInitialDeepLinkState(deepLinks: readonly string[]): {
   currentUserRequired: boolean;
+  userSwitchRequired: boolean;
 } {
   useEffect(() => {
     if (useInitialDeepLinkStateMounted) {
@@ -150,21 +123,27 @@ export function useInitialDeepLinkState(deepLinks: readonly string[]): {
 
   // Maybe this should be abstracted somewhere but that would require a
   // more intimate interface with this hook and the player selection logic.
-  const currentUserRequiredParam = useMemo(() => {
-    let currentUserRequired = false;
+  const currentUserRequired = useMemo(() => {
+    let userRequired = false;
     const ds = targetUrlState?.ds;
     const foundSource =
       ds == undefined
         ? undefined
         : availableSources.find((source) => source.id === ds || source.legacyIds?.includes(ds));
     if (foundSource) {
-      currentUserRequired = foundSource.currentUserRequired ?? false;
+      userRequired = foundSource.currentUserRequired ?? false;
     }
 
-    return { currentUserRequired };
+    return userRequired;
   }, [targetUrlState?.ds, availableSources]);
-  useSyncSourceFromUrl(targetUrlState, currentUserRequiredParam);
-  useSyncLayoutFromUrl(targetUrlState, currentUserRequiredParam);
+  useSyncSourceFromUrl(targetUrlState, { currentUserRequired });
   useSyncTimeFromUrl(targetUrlState);
-  return currentUserRequiredParam;
+
+  const { currentUser } = useCurrentUser();
+  const userSwitchRequired =
+    targetUrlState?.org != undefined &&
+    currentUser?.org.slug != undefined &&
+    currentUser.org.slug !== targetUrlState.org;
+
+  return { currentUserRequired, userSwitchRequired };
 }

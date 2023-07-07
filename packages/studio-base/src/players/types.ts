@@ -58,7 +58,7 @@ export interface Player {
   // Basic playback controls. Available if `capabilities` contains PlayerCapabilities.playbackControl.
   startPlayback?(): void;
   pausePlayback?(): void;
-  seekPlayback?(time: Time, backfillDuration?: Time): void;
+  seekPlayback?(time: Time): void;
   playUntil?(time: Time): void;
   // Seek to a particular time. Might trigger backfilling.
   // If the Player supports non-real-time speeds (i.e. PlayerState#capabilities contains
@@ -194,13 +194,6 @@ export type PlayerStateActiveData = {
   // A map of parameter names to parameter values, used to describe remote parameters such as
   // rosparams.
   parameters?: Map<string, ParameterValue>;
-
-  /** Set to true when `messages` has been recomputed without seek, backfill or playback.
-   * For example: when global variables changes, user-scripts needs to be rerun to recompute
-   * messages. This variable would be set to true to indicate that `messages` may have changed
-   * without a seek or backfill occurring.
-   */
-  messagesRecomputed?: boolean;
 };
 
 // Represents a ROS topic, though the actual data does not need to come from a ROS system.
