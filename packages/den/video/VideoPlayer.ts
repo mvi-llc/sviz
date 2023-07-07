@@ -2,8 +2,11 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import * as base64 from "@protobufjs/base64";
 import { Mutex } from "async-mutex";
 import EventEmitter from "eventemitter3";
+
+import { KeyValuePair } from "@foxglove/schemas";
 
 // foxglove-depcheck-used: @types/dom-webcodecs
 
@@ -30,6 +33,8 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
   #hasKeyframe = false;
   #mutex = new Mutex();
   #pendingFrame: VideoFrame | undefined;
+  #codedSize: { width: number; height: number } | undefined;
+  #displaySize: { width: number; height: number } | undefined;
 
   /** Reports whether video decoding is supported in this browser session */
   public static IsSupported(): boolean {
@@ -37,28 +42,17 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
   }
 
   /**
-   * Takes a parameterized MIME type string such as
-   * "video/avc;codecs=avc1.64001f;coded_width=1280;coded_height=720" and
-   * returns a VideoDecoderConfig object that can be passed to init().
-   * @param format A parameterized MIME type string
-   * @returns A VideoDecoderConfig object or undefined if parsing failed
+   * Takes metadata from a `foxglove.CompressedVideo` message and returns a
+   * VideoDecoderConfig object that can be passed to init().
+   * @param metadata Metadata from a `foxglove.CompressedVideo` message
+   * @returns A VideoDecoderConfig object or undefined if required keys are
+   *   missing or parsing failed
    */
-  public static ParseDecoderConfig(format: string): VideoDecoderConfig | undefined {
-    const parts = format.split(";");
-    if (parts.length < 2) {
-      return undefined;
-    }
-    if (parts[0]?.startsWith("video/") !== true) {
-      return undefined;
-    }
-
+  public static ParseDecoderConfig(metadata: KeyValuePair[]): VideoDecoderConfig | undefined {
     // Convert the key=value pairs into a Map
     const params = new Map<string, string>();
-    for (const part of parts.slice(1)) {
-      const [key, value] = part.split("=");
-      if (key && value) {
-        params.set(key, value);
-      }
+    for (const { key, value } of metadata) {
+      params.set(key, value);
     }
 
     const codec = params.get("codec");
@@ -72,7 +66,7 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
       return undefined;
     }
 
-    const description = descriptionStr ? hexToBytes(descriptionStr) : undefined;
+    const description = descriptionStr ? base64ToBytes(descriptionStr) : undefined;
     let codedWidth = codedWidthStr ? parseInt(codedWidthStr, 10) : undefined;
     let codedHeight = codedHeightStr ? parseInt(codedHeightStr, 10) : undefined;
     let displayAspectWidth = displayAspectWidthStr
@@ -133,6 +127,11 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
     this.emit("debug", `Configuring VideoDecoder with ${JSON.stringify(decoderConfig)}`);
     this.#decoder.configure(decoderConfig);
     this.#decoderConfig = decoderConfig;
+    this.#codedSize = undefined;
+    this.#displaySize = undefined;
+    if (decoderConfig.codedWidth != undefined && decoderConfig.codedHeight != undefined) {
+      this.#codedSize = { width: decoderConfig.codedWidth, height: decoderConfig.codedHeight };
+    }
 
     this.#mutex.release();
   }
@@ -145,6 +144,16 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
   /** Returns true if the VideoDecoder has received a keyframe since the last reset. */
   public hasKeyframe(): boolean {
     return this.#hasKeyframe;
+  }
+
+  /** Returns the dimensions of the coded video frames, if known. */
+  public codedSize(): { width: number; height: number } | undefined {
+    return this.#codedSize;
+  }
+
+  /** Returns the display dimensions of the last decoded video frame, if known. */
+  public displaySize(): { width: number; height: number } | undefined {
+    return this.#displaySize;
   }
 
   /**
@@ -219,6 +228,21 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
     const maybeVideoFrame = this.#pendingFrame;
     this.#pendingFrame = undefined;
 
+    // Update the coded and display sizes if we have a new frame
+    if (maybeVideoFrame) {
+      if (!this.#codedSize) {
+        this.#codedSize = { width: 0, height: 0 };
+      }
+      this.#codedSize.width = maybeVideoFrame.codedWidth;
+      this.#codedSize.height = maybeVideoFrame.codedHeight;
+
+      if (!this.#displaySize) {
+        this.#displaySize = { width: 0, height: 0 };
+      }
+      this.#displaySize.width = maybeVideoFrame.displayWidth;
+      this.#displaySize.height = maybeVideoFrame.displayHeight;
+    }
+
     this.#mutex.release();
     return maybeVideoFrame;
   }
@@ -249,10 +273,12 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
   }
 }
 
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array((hex.length / 2) | 0);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+function base64ToBytes(b64Str: string): Uint8Array {
+  const length = base64.length(b64Str);
+  let bytes = new Uint8Array(length);
+  const written = base64.decode(b64Str, bytes, 0);
+  if (written !== length) {
+    bytes = bytes.subarray(0, written);
   }
   return bytes;
 }

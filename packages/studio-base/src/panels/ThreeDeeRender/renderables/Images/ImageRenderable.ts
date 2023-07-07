@@ -182,18 +182,67 @@ export class ImageRenderable extends Renderable<ImageUserData> {
   ): void {
     this.userData.image = image;
 
+    const setError = (err: Error): void => {
+      if (this.#disposed) {
+        return;
+      }
+      this.renderer.settings.errors.add(
+        IMAGE_TOPIC_PATH,
+        CREATE_BITMAP_ERR_KEY,
+        `Error creating bitmap: ${err.message}`,
+      );
+      this.renderer.settings.errors.addToTopic(
+        this.userData.topic,
+        CREATE_BITMAP_ERR_KEY,
+        `Error creating bitmap: ${err.message}`,
+      );
+    };
+
     const seq = ++this.#receivedImageSequenceNumber;
-    const decodePromise =
-      "keyframe" in image
-        ? decodeCompressedVideoToBitmap(
-            image,
-            this.videoPlayer,
-            this.userData.firstMessageTime,
-            resizeWidth,
-          )
-        : "format" in image
-        ? decodeCompressedImageToBitmap(image, resizeWidth)
-        : (this.#decoder ??= new WorkerImageDecoder()).decode(image, this.#rawImageOptions);
+    let decodePromise: Promise<ImageBitmap | ImageData> | undefined;
+
+    if ("keyframe" in image) {
+      this.videoPlayer ??= new VideoPlayer();
+
+      if (!this.videoPlayer.isInitialized()) {
+        if (image.keyframe) {
+          // This is a keyframe, use the parsed metadata to initialize the video player
+          const decoderConfig = VideoPlayer.ParseDecoderConfig(image.metadata);
+          if (!decoderConfig) {
+            setError(new Error("Could not parse video metadata"));
+            return;
+          }
+          decodePromise = this.videoPlayer
+            .init(decoderConfig)
+            .then(
+              async () =>
+                await decodeCompressedVideoToBitmap(
+                  image,
+                  this.videoPlayer,
+                  this.userData.firstMessageTime,
+                  resizeWidth,
+                ),
+            );
+        } else {
+          // Video player is not initialized and this is not a keyframe, so we can't decode it
+          setError(new Error("Waiting for keyframe"));
+          return;
+        }
+      } else {
+        decodePromise = decodeCompressedVideoToBitmap(
+          image,
+          this.videoPlayer,
+          this.userData.firstMessageTime,
+          resizeWidth,
+        );
+      }
+    } else {
+      decodePromise =
+        "format" in image
+          ? decodeCompressedImageToBitmap(image, resizeWidth)
+          : (this.#decoder ??= new WorkerImageDecoder()).decode(image, this.#rawImageOptions);
+    }
+
     decodePromise
       .then((result) => {
         if (this.#disposed) {
@@ -213,21 +262,7 @@ export class ImageRenderable extends Renderable<ImageUserData> {
         this.renderer.settings.errors.removeFromTopic(this.userData.topic, CREATE_BITMAP_ERR_KEY);
         this.renderer.queueAnimationFrame();
       })
-      .catch((err) => {
-        if (this.#disposed) {
-          return;
-        }
-        this.renderer.settings.errors.add(
-          IMAGE_TOPIC_PATH,
-          CREATE_BITMAP_ERR_KEY,
-          `Error creating bitmap: ${err.message}`,
-        );
-        this.renderer.settings.errors.addToTopic(
-          this.userData.topic,
-          CREATE_BITMAP_ERR_KEY,
-          `Error creating bitmap: ${err.message}`,
-        );
-      });
+      .catch(setError);
   }
 
   public update(): void {
