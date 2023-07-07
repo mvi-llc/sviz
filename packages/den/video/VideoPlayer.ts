@@ -6,11 +6,11 @@ import * as base64 from "@protobufjs/base64";
 import { Mutex } from "async-mutex";
 import EventEmitter from "eventemitter3";
 
-import { KeyValuePair } from "@foxglove/schemas";
-
 // foxglove-depcheck-used: @types/dom-webcodecs
 
 const MAX_DECODE_WAIT_MS = 50;
+
+type KeyValuePair = { key: string; value: string };
 
 export type VideoPlayerEventTypes = {
   frame: (frame: VideoFrame) => void;
@@ -56,11 +56,13 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
     }
 
     const codec = params.get("codec");
-    const codedWidthStr = params.get("coded_width");
-    const codedHeightStr = params.get("coded_height");
-    const displayAspectWidthStr = params.get("display_aspect_width");
-    const displayAspectHeightStr = params.get("display_aspect_height");
-    const descriptionStr = params.get("description");
+    const codedWidthStr = params.get("codedWidth") ?? params.get("coded_width");
+    const codedHeightStr = params.get("codedHeight") ?? params.get("coded_height");
+    const displayAspectWidthStr =
+      params.get("displayAspectWidth") ?? params.get("display_aspect_width");
+    const displayAspectHeightStr =
+      params.get("displayAspectHeight") ?? params.get("display_aspect_height");
+    const descriptionStr = params.get("configuration") ?? params.get("description");
 
     if (!codec) {
       return undefined;

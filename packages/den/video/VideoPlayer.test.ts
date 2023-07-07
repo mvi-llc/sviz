@@ -6,14 +6,24 @@ import { VideoPlayer } from ".";
 
 describe("VideoPlayer", () => {
   it("ParseDecoderConfig", () => {
-    const config = VideoPlayer.ParseDecoderConfig(
-      "video/avc;codec=avc1.64001f;coded_width=1280;coded_height=720;description=aabbcc",
-    );
+    const metadata = [
+      { key: "codec", value: "avc1.64001f" },
+      { key: "codedWidth", value: "1280" },
+      { key: "codedHeight", value: "720" },
+      { key: "configuration", value: "qrvM" },
+    ];
+
+    const config = VideoPlayer.ParseDecoderConfig(metadata);
     expect(config).toEqual({
       codec: "avc1.64001f",
       codedWidth: 1280,
       codedHeight: 720,
+      displayAspectWidth: undefined,
+      displayAspectHeight: undefined,
       description: new Uint8Array([0xaa, 0xbb, 0xcc]),
     });
+
+    const config2 = VideoPlayer.ParseDecoderConfig([]);
+    expect(config2).toBeUndefined();
   });
 });
