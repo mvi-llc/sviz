@@ -61,9 +61,6 @@ export type ImageUserData = BaseUserData & {
 };
 
 export class ImageRenderable extends Renderable<ImageUserData> {
-  // A cache for decompressed image data, where the size is not known ahead of
-  // time and may change between messages.
-  // public imageDataCache = { data: new Uint8ClampedArray(0) };
   // A lazily instantiated player for compressed video
   public videoPlayer: VideoPlayer | undefined;
 

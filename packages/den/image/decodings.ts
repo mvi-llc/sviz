@@ -11,17 +11,6 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-// The set of image formats that can natively be rendered in the browser
-export const BROWSER_IMAGE_FORMATS = new Set([
-  "apng",
-  "avif",
-  "gif",
-  "jpeg",
-  "png",
-  "svg+xml",
-  "webp",
-]);
-
 function yuvToRGBA8(
   y1: number,
   u: number,
