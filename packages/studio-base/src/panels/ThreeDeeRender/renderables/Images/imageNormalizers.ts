@@ -2,7 +2,8 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { CompressedImage, KeyValuePair, RawImage } from "@foxglove/schemas";
+import { filterMap } from "@foxglove/den/collection";
+import { CompressedImage, RawImage } from "@foxglove/schemas";
 import { PartialMessage } from "@foxglove/studio-base/panels/ThreeDeeRender/SceneExtension";
 
 import { CompressedVideo } from "./ImageTypes";
@@ -67,18 +68,6 @@ export function normalizeCompressedImage(
   };
 }
 
-export function normalizeKeyValuePair(
-  message: PartialMessage<KeyValuePair> | undefined,
-): KeyValuePair {
-  if (message == undefined) {
-    return { key: "", value: "" };
-  }
-  return {
-    key: message.key ?? "",
-    value: message.value ?? "",
-  };
-}
-
 export function normalizeCompressedVideo(
   message: PartialMessage<CompressedVideo>,
 ): CompressedVideo {
@@ -87,6 +76,8 @@ export function normalizeCompressedVideo(
     frame_id: message.frame_id ?? "",
     data: normalizeByteArray(message.data),
     keyframe: message.keyframe ?? false,
-    metadata: (message.metadata ?? []).map(normalizeKeyValuePair),
+    metadata: filterMap(message.metadata ?? [], (kvp) =>
+      kvp ? { key: kvp.key ?? "", value: kvp.value ?? "" } : undefined,
+    ),
   };
 }

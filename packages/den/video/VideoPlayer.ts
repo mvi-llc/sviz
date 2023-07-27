@@ -110,32 +110,30 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
    * be called before decode() will return a VideoFrame.
    */
   public async init(decoderConfig: VideoDecoderConfig): Promise<void> {
-    await this.#mutex.acquire();
+    return await this.#mutex.runExclusive(async () => {
+      // Optimize for latency means we do not have to call flush() in every decode() call
+      // See <https://github.com/w3c/webcodecs/issues/206>
+      decoderConfig.optimizeForLatency = true;
+      decoderConfig.hardwareAcceleration = "prefer-hardware";
 
-    // Optimize for latency means we do not have to call flush() in every decode() call
-    // See <https://github.com/w3c/webcodecs/issues/206>
-    decoderConfig.optimizeForLatency = true;
-    decoderConfig.hardwareAcceleration = "prefer-hardware";
+      const support = await VideoDecoder.isConfigSupported(decoderConfig);
+      if (support.supported !== true) {
+        const err = new Error(
+          `VideoDecoder does not support configuration ${JSON.stringify(decoderConfig)}`,
+        );
+        this.emit("error", err);
+        return;
+      }
 
-    const support = await VideoDecoder.isConfigSupported(decoderConfig);
-    if (support.supported !== true) {
-      const err = new Error(
-        `VideoDecoder does not support configuration ${JSON.stringify(decoderConfig)}`,
-      );
-      this.emit("error", err);
-      this.#mutex.release();
-    }
-
-    this.emit("debug", `Configuring VideoDecoder with ${JSON.stringify(decoderConfig)}`);
-    this.#decoder.configure(decoderConfig);
-    this.#decoderConfig = decoderConfig;
-    this.#codedSize = undefined;
-    this.#displaySize = undefined;
-    if (decoderConfig.codedWidth != undefined && decoderConfig.codedHeight != undefined) {
-      this.#codedSize = { width: decoderConfig.codedWidth, height: decoderConfig.codedHeight };
-    }
-
-    this.#mutex.release();
+      this.emit("debug", `Configuring VideoDecoder with ${JSON.stringify(decoderConfig)}`);
+      this.#decoder.configure(decoderConfig);
+      this.#decoderConfig = decoderConfig;
+      this.#codedSize = undefined;
+      this.#displaySize = undefined;
+      if (decoderConfig.codedWidth != undefined && decoderConfig.codedHeight != undefined) {
+        this.#codedSize = { width: decoderConfig.codedWidth, height: decoderConfig.codedHeight };
+      }
+    });
   }
 
   /** Returns true if the VideoDecoder is open and configured, ready for decoding. */
@@ -176,77 +174,79 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
     timestampMicros: number,
     type: "key" | "delta",
   ): Promise<VideoFrame | undefined> {
-    await this.#mutex.acquire();
+    return await this.#mutex.runExclusive(async () => {
+      if (this.#decoder.state === "closed") {
+        this.emit("warn", "VideoDecoder is closed, creating a new one");
+        this.#decoder = new VideoDecoder(this.#decoderInit);
+      }
 
-    if (this.#decoder.state === "closed") {
-      this.emit("warn", "VideoDecoder is closed, creating a new one");
-      this.#decoder = new VideoDecoder(this.#decoderInit);
-    }
-
-    if (this.#decoder.state === "unconfigured") {
-      this.emit("debug", "Waiting for initialization...");
-      this.#mutex.release();
-      return undefined;
-    }
-
-    if (!this.#hasKeyframe) {
-      if (type === "key") {
-        this.#hasKeyframe = true;
-      } else {
-        this.emit("debug", `Waiting for keyframe...`);
-        this.#mutex.release();
+      if (this.#decoder.state === "unconfigured") {
+        this.emit("debug", "Waiting for initialization...");
         return undefined;
       }
-    }
 
-    const decoding = new Promise<void>((resolve) => {
-      const timeoutId = setTimeout(() => {
-        this.emit(
-          "warn",
-          `Timed out decoding ${data.byteLength} byte chunk at time ${timestampMicros}`,
-        );
-        resolve(undefined);
-      }, MAX_DECODE_WAIT_MS);
-      this.once("frame", (_videoFrame) => {
-        clearTimeout(timeoutId);
-        resolve();
+      if (!this.#hasKeyframe) {
+        if (type === "key") {
+          this.#hasKeyframe = true;
+        } else {
+          this.emit("debug", `Waiting for keyframe...`);
+          return undefined;
+        }
+      }
+
+      await new Promise<void>((resolve) => {
+        const frameHandler = () => {
+          clearTimeout(timeoutId);
+          resolve();
+        };
+
+        const timeoutId = setTimeout(() => {
+          this.removeListener("frame", frameHandler);
+          this.emit(
+            "warn",
+            `Timed out decoding ${data.byteLength} byte chunk at time ${timestampMicros}`,
+          );
+          resolve(undefined);
+        }, MAX_DECODE_WAIT_MS);
+
+        this.once("frame", frameHandler);
+
+        try {
+          this.#decoder.decode(new EncodedVideoChunk({ type, data, timestamp: timestampMicros }));
+        } catch (unk) {
+          clearTimeout(timeoutId);
+          this.removeListener("frame", frameHandler);
+
+          const error = new Error(
+            `Failed to decode ${data.byteLength} byte chunk at time ${timestampMicros}: ${
+              (unk as Error).message
+            }`,
+          );
+          this.emit("error", error);
+          resolve();
+        }
       });
 
-      try {
-        this.#decoder.decode(new EncodedVideoChunk({ type, data, timestamp: timestampMicros }));
-      } catch (unk) {
-        const err = unk as Error;
-        this.emit(
-          "error",
-          new Error(
-            `Failed to decode ${data.byteLength} byte chunk at time ${timestampMicros}: ${err.message}`,
-          ),
-        );
-        resolve();
+      const maybeVideoFrame = this.#pendingFrame;
+      this.#pendingFrame = undefined;
+
+      // Update the coded and display sizes if we have a new frame
+      if (maybeVideoFrame) {
+        if (!this.#codedSize) {
+          this.#codedSize = { width: 0, height: 0 };
+        }
+        this.#codedSize.width = maybeVideoFrame.codedWidth;
+        this.#codedSize.height = maybeVideoFrame.codedHeight;
+
+        if (!this.#displaySize) {
+          this.#displaySize = { width: 0, height: 0 };
+        }
+        this.#displaySize.width = maybeVideoFrame.displayWidth;
+        this.#displaySize.height = maybeVideoFrame.displayHeight;
       }
+
+      return maybeVideoFrame;
     });
-
-    await decoding;
-    const maybeVideoFrame = this.#pendingFrame;
-    this.#pendingFrame = undefined;
-
-    // Update the coded and display sizes if we have a new frame
-    if (maybeVideoFrame) {
-      if (!this.#codedSize) {
-        this.#codedSize = { width: 0, height: 0 };
-      }
-      this.#codedSize.width = maybeVideoFrame.codedWidth;
-      this.#codedSize.height = maybeVideoFrame.codedHeight;
-
-      if (!this.#displaySize) {
-        this.#displaySize = { width: 0, height: 0 };
-      }
-      this.#displaySize.width = maybeVideoFrame.displayWidth;
-      this.#displaySize.height = maybeVideoFrame.displayHeight;
-    }
-
-    this.#mutex.release();
-    return maybeVideoFrame;
   }
 
   /**

@@ -310,7 +310,7 @@ export function RendererOverlay(props: {
       if ("format" in image) {
         bitmap = await decodeCompressedImageToBitmap(image);
       } else if ("keyframe" in image) {
-        throw new Error("Image download from CompressedVideo is not supported yet");
+        throw new Error("Image download from CompressedVideo is not supported");
       } else {
         const imageData = new ImageData(image.width, image.height);
         decodeRawImage(image, { minValue, maxValue }, imageData.data);
