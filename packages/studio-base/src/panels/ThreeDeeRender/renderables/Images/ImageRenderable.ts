@@ -7,6 +7,7 @@ import { assert } from "ts-essentials";
 
 import { PinholeCameraModel } from "@foxglove/den/image";
 import { VideoPlayer } from "@foxglove/den/video";
+import Logger from "@foxglove/log";
 import { toNanoSec } from "@foxglove/rostime";
 import { IRenderer } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
 import { BaseUserData, Renderable } from "@foxglove/studio-base/panels/ThreeDeeRender/Renderable";
@@ -22,6 +23,8 @@ import {
   decodeCompressedVideoToBitmap,
 } from "./decodeImage";
 import { CameraInfo } from "../../ros";
+
+const log = Logger.getLogger(__filename);
 
 export interface ImageRenderableSettings {
   visible: boolean;
@@ -180,6 +183,7 @@ export class ImageRenderable extends Renderable<ImageUserData> {
     this.userData.image = image;
 
     const setError = (err: Error): void => {
+      log.error(err);
       if (this.#disposed) {
         return;
       }
