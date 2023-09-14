@@ -106,17 +106,16 @@ export const mainConfig =
     <head>
       <meta charset="utf-8">
       <meta name="apple-mobile-web-app-capable" content="yes">
-      <meta property="og:title" content="Foxglove Studio"/>
+      <meta property="og:title" content="sviz"/>
       <meta property="og:description" content="Open source visualization and debugging tool for robotics"/>
       <meta property="og:type" content="website"/>
       <meta property="og:image" content="https://foxglove.dev/images/og-image.jpeg"/>
-      <meta property="og:url" content="https://studio.foxglove.dev/"/>
+      <meta property="og:url" content="https://sviz.metaverseindustries.llc/"/>
       <meta name="twitter:card" content="summary_large_image"/>
-      <meta name="twitter:site" content="@foxglovedev"/>
       <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
       <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
       <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
-      <title>Foxglove Studio</title>
+      <title>sviz</title>
       <style type="text/css" id="loading-styles">
         body {
           margin: 0;

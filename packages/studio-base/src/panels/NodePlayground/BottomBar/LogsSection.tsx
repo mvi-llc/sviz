@@ -69,8 +69,7 @@ const LogsSection = ({ logs }: { logs: readonly UserNodeLog[] }): JSX.Element =>
           No logs to display.
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Invoke <code>log(someValue)</code> in your Foxglove Studio node code to see data printed
-          here.
+          Invoke <code>log(someValue)</code> in your script to see data printed here.
         </Typography>
       </Stack>
     );

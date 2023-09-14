@@ -429,6 +429,12 @@ export default class FoxgloveWebSocketPlayer implements Player {
           ) {
             schemaEncoding = channel.schemaEncoding ?? "ros2msg";
             schemaData = textEncoder.encode(channel.schema);
+          } else if (
+            channel.encoding === "cbuf" &&
+            (channel.schemaEncoding == undefined || channel.schemaEncoding === "cbuf")
+          ) {
+            schemaEncoding = channel.schemaEncoding ?? "cbuf";
+            schemaData = textEncoder.encode(channel.schema);
           } else {
             const msg = channel.schemaEncoding
               ? `Unsupported combination of message / schema encoding: (${channel.encoding} / ${channel.schemaEncoding})`

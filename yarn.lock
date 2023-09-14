@@ -2392,7 +2392,9 @@ __metadata:
   resolution: "@foxglove/den@workspace:packages/den"
   dependencies:
     "@foxglove/tsconfig": 2.0.0
+    "@types/dom-webcodecs": 0.1.7
     async-mutex: 0.4.0
+    eventemitter3: 5.0.0
     xacro-parser: 0.3.9
   languageName: unknown
   linkType: soft
@@ -2496,6 +2498,7 @@ __metadata:
     flatbuffers_reflection: 0.0.7
     protobufjs: "patch:protobufjs@7.2.4#../../patches/protobufjs.patch"
     typescript: 5.2.2
+    wasm-cbuf: 2.2.0
   languageName: unknown
   linkType: soft
 
@@ -6339,6 +6342,13 @@ __metadata:
   version: 0.0.3
   resolution: "@types/doctrine@npm:0.0.3"
   checksum: 7ca9c8ff4d2da437785151c9eef0dd80b8fa12e0ff0fcb988458a78de4b6f0fc92727ba5bbee446e1df615a91f03053c5783b30b7c21ab6ceab6a42557e93e50
+  languageName: node
+  linkType: hard
+
+"@types/dom-webcodecs@npm:0.1.7":
+  version: 0.1.7
+  resolution: "@types/dom-webcodecs@npm:0.1.7"
+  checksum: f9934231fc1d9e56be8eba9eca314a4d9ba4fb8f9069c648b03511a2b5e43321ca579ecf6d1b17cbdbecbacb49a0551329835eea234acc210fb6a365fb24985f
   languageName: node
   linkType: hard
 
@@ -12014,6 +12024,13 @@ __metadata:
   version: 6.4.5
   resolution: "eventemitter2@npm:6.4.5"
   checksum: 84504f9cf0cc30205cdd46783fe9df3733435e5097f13070b678023110b5ef07847651808ae280cd94c42cd5976880211c7a40321a8ff8fa56f7c5f9c5c11960
+  languageName: node
+  linkType: hard
+
+"eventemitter3@npm:5.0.0":
+  version: 5.0.0
+  resolution: "eventemitter3@npm:5.0.0"
+  checksum: b974bafbab860e0a5bbb21add4c4e82f9d5691c583c03f2e4c5d44a2d6c4556d79223621bdcfc6c8e14366a4af9df6b5ea9d6caf65fbffc80b66f3e1dceacbc9
   languageName: node
   linkType: hard
 
@@ -22077,6 +22094,15 @@ __metadata:
   dependencies:
     makeerror: 1.0.12
   checksum: ad7a257ea1e662e57ef2e018f97b3c02a7240ad5093c392186ce0bcf1f1a60bbadd520d073b9beb921ed99f64f065efb63dfc8eec689a80e569f93c1c5d5e16c
+  languageName: node
+  linkType: hard
+
+"wasm-cbuf@npm:2.2.0":
+  version: 2.2.0
+  resolution: "wasm-cbuf@npm:2.2.0"
+  dependencies:
+    "@foxglove/message-definition": ^0.2.0
+  checksum: 501c3ffbf9b54a53bde5b190ec1387902348c88778a8a4a7d3ea8f1556bdbc9aae0a22b5792ab0dfb51d8d17d582108b1849d2a12ddb83caf036abbd6422f092
   languageName: node
   linkType: hard
 

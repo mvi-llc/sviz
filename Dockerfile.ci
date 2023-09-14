@@ -1,0 +1,9 @@
+FROM caddy:2.6.4-alpine
+WORKDIR /app
+
+# Copy index.html first to fail fast if it's missing
+COPY web/.webpack/index.html ./index.html
+COPY web/.webpack ./
+
+EXPOSE 80
+CMD ["caddy", "file-server", "--listen", ":80"]

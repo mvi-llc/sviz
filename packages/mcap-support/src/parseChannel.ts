@@ -2,6 +2,8 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import Cbuf from "wasm-cbuf";
+
 import { MessageDefinition, MessageDefinitionField } from "@foxglove/message-definition";
 import { IDLMessageDefinition, parseIDL } from "@foxglove/omgidl-parser";
 import { MessageReader as OmgidlMessageReader } from "@foxglove/omgidl-serialization";
@@ -189,6 +191,30 @@ export function parseChannel(channel: Channel): ParsedChannel {
         deserialize: (data) => reader.readMessage(data),
       };
     }
+  }
+
+  if (channel.messageEncoding === "cbuf") {
+    if (channel.schema?.encoding !== "cbuf") {
+      throw new Error(
+        `Message encoding ${channel.messageEncoding} with ${
+          channel.schema == undefined
+            ? "no encoding"
+            : `schema encoding '${channel.schema.encoding}'`
+        } is not supported (expected cbuf)`,
+      );
+    }
+    const schema = new TextDecoder().decode(channel.schema.data);
+    const res = Cbuf.parseCBufSchema(schema);
+    if (res.error) {
+      throw new Error(`Error parsing cbuf schema: ${res.error}\n\n${schema}`);
+    }
+    const schemaMap = res.schema;
+    const hashMap = Cbuf.schemaMapToHashMap(schemaMap);
+
+    return {
+      datatypes: res.schema,
+      deserialize: (data) => Cbuf.deserializeMessage(schemaMap, hashMap, data, 0).message,
+    };
   }
 
   throw new Error(`Unsupported encoding ${channel.messageEncoding}`);

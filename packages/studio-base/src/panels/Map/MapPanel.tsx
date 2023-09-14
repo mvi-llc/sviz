@@ -75,7 +75,7 @@ function MapPanel(props: MapPanelProps): JSX.Element {
 
   const [tileLayer] = useState(
     new TileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+      attribution: "",
       maxNativeZoom: 18,
       maxZoom: 24,
     }),
@@ -85,8 +85,7 @@ function MapPanel(props: MapPanelProps): JSX.Element {
     new TileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
-        attribution:
-          "&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+        attribution: "",
         maxNativeZoom: 18,
         maxZoom: 24,
       },

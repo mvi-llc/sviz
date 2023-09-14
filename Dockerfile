@@ -9,11 +9,11 @@ RUN yarn install --immutable
 RUN yarn run web:build:prod
 
 # Release stage
-FROM caddy:2.5.2-alpine
+FROM caddy:2.6.4-alpine
 WORKDIR /src
 COPY --from=build /src/web/.webpack ./
 
-EXPOSE 8080
+EXPOSE 80
 
 COPY <<EOF /entrypoint.sh
 # Optionally override the default layout with one provided via bind mount
@@ -36,4 +36,4 @@ exec "\$@"
 EOF
 
 ENTRYPOINT ["/bin/sh", "/entrypoint.sh"]
-CMD ["caddy", "file-server", "--listen", ":8080"]
+CMD ["caddy", "file-server", "--listen", ":80"]

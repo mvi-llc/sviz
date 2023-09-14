@@ -146,10 +146,7 @@ const aboutItems = new Map<
     "products",
     {
       subheader: "Products",
-      links: [
-        { title: "Foxglove Studio", url: "https://foxglove.dev/studio" },
-        { title: "Foxglove Data Platform", url: "https://foxglove.dev/data-platform" },
-      ],
+      links: [{ title: "sviz", url: "https://github.com/metaverseindustries/sviz" }],
     },
   ],
   [
@@ -169,6 +166,7 @@ const aboutItems = new Map<
       links: [
         { title: "License terms", url: "https://foxglove.dev/legal/studio-license" },
         { title: "Privacy policy", url: "https://foxglove.dev/legal/privacy" },
+        { title: "Satellite imagery", url: "https://www.esri.com/" },
       ],
     },
   ],
@@ -339,9 +337,7 @@ export function AppSettingsDialog(
                 <FoxgloveLogoText color="primary" className={classes.logo} />
               </header>
               <Stack direction="row" alignItems="center" gap={1}>
-                <Typography variant="body2">
-                  Foxglove Studio version {FOXGLOVE_STUDIO_VERSION}
-                </Typography>
+                <Typography variant="body2">sviz version {FOXGLOVE_STUDIO_VERSION}</Typography>
                 <CopyButton
                   size="small"
                   getText={() => FOXGLOVE_STUDIO_VERSION?.toString() ?? ""}

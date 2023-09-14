@@ -2,20 +2,20 @@
   "name": "foxglove-studio",
   "version": "1.70.0-dev",
   "description": "Integrated robotics visualization and debugging.",
-  "productName": "Foxglove Studio",
-  "productDescription": "Foxglove Studio is a highly customizable and extensible visualization and display tool for robotics.",
+  "productName": "sviz",
+  "productDescription": "sviz is a highly customizable and extensible visualization and display tool for robotics.",
   "license": "MPL-2.0",
   "private": true,
   "packageManager": "yarn@3.6.3",
   "repository": {
     "type": "git",
-    "url": "https://github.com/foxglove/studio.git"
+    "url": "https://github.com/MetaverseIndustries/sviz.git"
   },
   "author": {
-    "name": "Foxglove Technologies",
-    "email": "support@foxglove.dev"
+    "name": "Metaverse Industries LLC",
+    "email": "john@metaverseindustries.llc"
   },
-  "homepage": "https://foxglove.dev/",
+  "homepage": "https://sviz.metaverseindustries.llc/",
   "engines": {
     "node": ">=16"
   },
