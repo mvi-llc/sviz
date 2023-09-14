@@ -15,6 +15,7 @@ import {
   McapLocalDataSourceFactory,
   SampleNuscenesDataSourceFactory,
   IdbExtensionLoader,
+  EmbeddedExtensionLoader,
   App,
   AppSetting,
 } from "@foxglove/studio-base";
@@ -37,6 +38,7 @@ export function Root(props: {
     [],
   );
   const [extensionLoaders] = useState(() => [
+    new EmbeddedExtensionLoader(),
     new IdbExtensionLoader("org"),
     new IdbExtensionLoader("local"),
   ]);

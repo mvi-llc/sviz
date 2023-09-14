@@ -85,6 +85,25 @@ Foxglove Studio will be accessible in your browser at [localhost:8080](http://lo
 docker run --rm -p "8080:8080" -v /path/to/custom_layout.json:/foxglove/default-layout.json ghcr.io/foxglove/studio:latest
 ```
 
+### Self-hosted extensions
+
+You can deliver a fixed set of extensions when self-hosting by [bind-mounting](https://docs.docker.com/storage/bind-mounts/) a directory containing one or more `.foxe` extensions and a `manifest.json` to `/src/extensions`. The format for the manifest JSON is as follows:
+
+```json
+{
+  "packages": {
+    "<extension-id>": {
+      "url": "/extensions/<filename>.foxe",
+      "config": {
+        "name": "<extension-name>",
+        "displayName": "...",
+        "...": "..."
+      }
+    }
+  }
+}
+```
+
 ## Contributing
 
 Foxglove Studio is written in TypeScript – contributions are welcome!

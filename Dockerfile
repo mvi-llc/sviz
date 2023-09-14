@@ -24,6 +24,13 @@ replace_pattern='/*FOXGLOVE_STUDIO_DEFAULT_LAYOUT_PLACEHOLDER*/'
 replace_value=\$(cat /foxglove/default-layout.json)
 echo "\${index_html/"\$replace_pattern"/\$replace_value}" > index.html
 
+# Optionally set the extensions manifest via bind mount
+if [ -f /src/extensions/manifest.json ]; then
+  extensions_json=\$(cat /src/extensions/manifest.json)
+  replace_pattern='/*FOXGLOVE_STUDIO_EXTENSIONS_PLACEHOLDER*/'
+  echo "\${index_html/"\$replace_pattern"/\$extensions_json}" > index.html
+fi
+
 # Continue executing the CMD
 exec "\$@"
 EOF
