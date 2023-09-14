@@ -5,7 +5,8 @@
 import JSZip from "jszip";
 
 import Logger from "@foxglove/log";
-import { ExtensionInfo, ExtensionLoader, ExtensionNamespace } from "@foxglove/studio-base";
+import { ExtensionLoader } from "@foxglove/studio-base/services/ExtensionLoader";
+import { ExtensionInfo, ExtensionNamespace } from "@foxglove/studio-base/types/Extensions";
 
 const log = Logger.getLogger(__filename);
 
