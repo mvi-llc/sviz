@@ -2,6 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import { t } from "i18next";
 import { assert } from "ts-essentials";
 
 import { MultiMap, filterMap } from "@foxglove/den/collection";
@@ -58,6 +59,7 @@ const NO_CAMERA_INFO_ERR = "NoCameraInfo";
 const CAMERA_MODEL = "CameraModel";
 
 export class Images extends SceneExtension<ImageRenderable> {
+  public static extensionId = "foxglove.Images";
   /* All known camera info topics */
   #cameraInfoTopics = new Set<string>();
 
@@ -75,8 +77,8 @@ export class Images extends SceneExtension<ImageRenderable> {
    */
   #cameraInfoByTopic = new Map<string, CameraInfo>();
 
-  public constructor(renderer: IRenderer) {
-    super("foxglove.Images", renderer);
+  public constructor(renderer: IRenderer, name: string = Images.extensionId) {
+    super(name, renderer);
     this.renderer.on("topicsChanged", this.#handleTopicsChanged);
     this.#handleTopicsChanged();
   }
@@ -166,12 +168,32 @@ export class Images extends SceneExtension<ImageRenderable> {
       cameraInfoOptions.sort();
       sortPrefixMatchesToFront(cameraInfoOptions, imageTopic, (option) => option.value);
 
-      // prettier-ignore
       const fields: SettingsTreeFields = {
-        cameraInfoTopic: { label: "Camera Info", input: "select", options: cameraInfoOptions, value: config.cameraInfoTopic },
-        distance: { label: "Distance", input: "number", placeholder: String(IMAGE_RENDERABLE_DEFAULT_SETTINGS.distance), step: 0.1, precision: PRECISION_DISTANCE, value: config.distance },
-        planarProjectionFactor: { label: "Planar Projection Factor", input: "number", placeholder: String(IMAGE_RENDERABLE_DEFAULT_SETTINGS.planarProjectionFactor), min: 0, max: 1, step: 0.1, precision: 2, value: config.planarProjectionFactor },
-        color: { label: "Color", input: "rgba", value: config.color },
+        cameraInfoTopic: {
+          label: t("threeDee:cameraInfo"),
+          input: "select",
+          options: cameraInfoOptions,
+          value: config.cameraInfoTopic,
+        },
+        distance: {
+          label: t("threeDee:distance"),
+          input: "number",
+          placeholder: String(IMAGE_RENDERABLE_DEFAULT_SETTINGS.distance),
+          step: 0.1,
+          precision: PRECISION_DISTANCE,
+          value: config.distance,
+        },
+        planarProjectionFactor: {
+          label: t("threeDee:planarProjectionFactor"),
+          input: "number",
+          placeholder: String(IMAGE_RENDERABLE_DEFAULT_SETTINGS.planarProjectionFactor),
+          min: 0,
+          max: 1,
+          step: 0.1,
+          precision: 2,
+          value: config.planarProjectionFactor,
+        },
+        color: { label: t("threeDee:color"), input: "rgba", value: config.color },
       };
 
       entries.push({

@@ -2,12 +2,23 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import * as _ from "lodash-es";
 import * as THREE from "three";
+import { Writable } from "ts-essentials";
 
 import { filterMap } from "@foxglove/den/collection";
 import { PinholeCameraModel } from "@foxglove/den/image";
+import Logger from "@foxglove/log";
 import { toNanoSec } from "@foxglove/rostime";
-import { Immutable, SettingsTreeAction, SettingsTreeFields, Topic } from "@foxglove/studio";
+import {
+  DraggedMessagePath,
+  Immutable,
+  SettingsTreeAction,
+  SettingsTreeFields,
+  Topic,
+} from "@foxglove/studio";
+import { PanelContextMenuItem } from "@foxglove/studio-base/components/PanelContextMenu";
+import { Path } from "@foxglove/studio-base/panels/ThreeDeeRender/LayerErrors";
 import {
   IMAGE_RENDERABLE_DEFAULT_SETTINGS,
   ImageRenderable,
@@ -19,15 +30,27 @@ import {
   getFrameIdFromImage,
 } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Images/ImageTypes";
 import {
+  IMAGE_DEFAULT_COLOR_MODE_SETTINGS,
+  decodeCompressedImageToBitmap,
+  decodeRawImage,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/Images/decodeImage";
+import {
   cameraInfosEqual,
   normalizeCameraInfo,
 } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/projections";
 import { makePose } from "@foxglove/studio-base/panels/ThreeDeeRender/transforms";
+import { AppEvent } from "@foxglove/studio-base/services/IAnalytics";
+import { downloadFiles } from "@foxglove/studio-base/util/download";
 
 import { ImageModeCamera } from "./ImageModeCamera";
 import { MessageHandler, MessageRenderState } from "./MessageHandler";
 import { ImageAnnotations } from "./annotations/ImageAnnotations";
-import type { AnyRendererSubscription, IRenderer, ImageModeConfig } from "../../IRenderer";
+import type {
+  AnyRendererSubscription,
+  IRenderer,
+  ImageModeConfig,
+  RendererConfig,
+} from "../../IRenderer";
 import { PartialMessageEvent, SceneExtension } from "../../SceneExtension";
 import { SettingsTreeEntry } from "../../SettingsManager";
 import {
@@ -45,6 +68,9 @@ import {
 import { topicIsConvertibleToSchema } from "../../topicIsConvertibleToSchema";
 import { ICameraHandler } from "../ICameraHandler";
 import { getTopicMatchPrefix, sortPrefixMatchesToFront } from "../Images/topicPrefixMatching";
+import { ColorModeSettings, colorModeSettingsFields } from "../colorMode";
+
+const log = Logger.getLogger(__filename);
 
 const IMAGE_TOPIC_PATH = ["imageMode", "imageTopic"];
 const CALIBRATION_TOPIC_PATH = ["imageMode", "calibrationTopic"];
@@ -61,7 +87,9 @@ const DEFAULT_FOCAL_LENGTH = 500;
 
 const REMOVE_IMAGE_TIMEOUT_MS = 50;
 
-type ImageModeEvent = { type: "hasModifiedViewChanged" };
+interface ImageModeEventMap extends THREE.Object3DEventMap {
+  hasModifiedViewChanged: object;
+}
 
 const ALL_SUPPORTED_IMAGE_SCHEMAS = new Set([
   ...ROS_IMAGE_DATATYPES,
@@ -81,13 +109,15 @@ const DEFAULT_CONFIG = {
   flipHorizontal: false,
   flipVertical: false,
   rotation: 0 as 0 | 90 | 180 | 270,
+  ...IMAGE_DEFAULT_COLOR_MODE_SETTINGS,
 };
 
 type ConfigWithDefaults = ImageModeConfig & typeof DEFAULT_CONFIG;
 export class ImageMode
-  extends SceneExtension<ImageRenderable, ImageModeEvent>
+  extends SceneExtension<ImageRenderable, ImageModeEventMap>
   implements ICameraHandler
 {
+  public static extensionId = "foxglove.ImageMode";
   #camera: ImageModeCamera;
   #cameraModel:
     | {
@@ -110,27 +140,10 @@ export class ImageMode
   // Will need to change when synchronization is implemented (FG-2686)
   #latestImage: { topic: string; image: AnyImage } | undefined;
 
-  // eslint-disable-next-line @foxglove/no-boolean-parameters
-  #setHasCalibrationTopic: (hasCalibrationTopic: boolean) => void;
+  public constructor(renderer: IRenderer, name: string = ImageMode.extensionId) {
+    super(name, renderer);
 
-  /**
-   * @param canvasSize Canvas size in CSS pixels
-   */
-  public constructor(
-    renderer: IRenderer,
-    {
-      canvasSize,
-      setHasCalibrationTopic,
-    }: {
-      canvasSize: THREE.Vector2;
-
-      // eslint-disable-next-line @foxglove/no-boolean-parameters
-      setHasCalibrationTopic: (hasCalibrationTopic: boolean) => void;
-    },
-  ) {
-    super("foxglove.ImageMode", renderer);
-
-    this.#setHasCalibrationTopic = setHasCalibrationTopic;
+    const canvasSize = renderer.input.canvasSize;
 
     this.#camera = new ImageModeCamera();
 
@@ -155,13 +168,21 @@ export class ImageMode
       topics: () => renderer.topics ?? [],
       config: () => this.#getImageModeSettings(),
       updateConfig: (updateHandler) => {
-        renderer.updateConfig((draft) => updateHandler(draft.imageMode));
+        renderer.updateConfig((draft) => {
+          updateHandler(draft.imageMode);
+        });
       },
       updateSettingsTree: () => {
         this.updateSettingsTree();
       },
       labelPool: renderer.labelPool,
       messageHandler: this.#messageHandler,
+      addSettingsError(path: Path, errorId: string, errorMessage: string) {
+        renderer.settings.errors.add(path, errorId, errorMessage);
+      },
+      removeSettingsError(path: Path, errorId: string) {
+        renderer.settings.errors.remove(path, errorId);
+      },
     });
     this.add(this.#annotations);
 
@@ -293,6 +314,15 @@ export class ImageMode
     super.removeAllRenderables();
   }
 
+  // eslint-disable-next-line @foxglove/no-boolean-parameters
+  #setHasCalibrationTopic = (hasCalibrationTopic: boolean): void => {
+    if (hasCalibrationTopic) {
+      this.renderer.disableImageOnlySubscriptionMode();
+    } else {
+      this.renderer.enableImageOnlySubscriptionMode();
+    }
+  };
+
   /**
    * If no image topic is selected, automatically select the first available one from `renderer.topics`.
    * Also auto-select a new calibration topic to match the new image topic.
@@ -338,16 +368,10 @@ export class ImageMode
   public override settingsNodes(): SettingsTreeEntry[] {
     const handler = this.handleSettingsAction;
 
-    const {
-      imageTopic,
-      calibrationTopic,
-      synchronize,
-      flipHorizontal,
-      flipVertical,
-      rotation,
-      minValue,
-      maxValue,
-    } = this.#getImageModeSettings();
+    const settings = this.#getImageModeSettings();
+
+    const { imageTopic, calibrationTopic, synchronize, flipHorizontal, flipVertical, rotation } =
+      settings;
 
     const imageTopics = filterMap(this.renderer.topics ?? [], (topic) => {
       if (!topicIsConvertibleToSchema(topic, ALL_SUPPORTED_IMAGE_SCHEMAS)) {
@@ -439,22 +463,23 @@ export class ImageMode
         { label: "270°", value: 270 },
       ],
     };
-    fields.minValue = {
-      input: "number",
-      label: "Min (depth images)",
-      placeholder: "0",
-      step: 1,
-      precision: 0,
-      value: minValue,
-    };
-    fields.maxValue = {
-      input: "number",
-      label: "Max (depth images)",
-      placeholder: "10000",
-      step: 1,
-      precision: 0,
-      value: maxValue,
-    };
+
+    const colorModeFields = colorModeSettingsFields({
+      config: settings as ImageModeConfig,
+
+      defaults: {
+        gradient: DEFAULT_CONFIG.gradient,
+      },
+      modifiers: {
+        supportsPackedRgbModes: false,
+        supportsRgbaFieldsMode: false,
+        hideFlatColor: true,
+        hideExplicitAlpha: true,
+      },
+    });
+
+    Object.assign(fields, colorModeFields);
+
     return [
       {
         path: ["imageMode"],
@@ -514,16 +539,16 @@ export class ImageMode
       if (config.flipVertical !== prevImageModeConfig.flipVertical) {
         this.#camera.setFlipVertical(config.flipVertical);
       }
-      if (
-        config.minValue !== prevImageModeConfig.minValue ||
-        config.maxValue !== prevImageModeConfig.maxValue
-      ) {
-        this.#imageRenderable?.setSettings({
-          ...this.#imageRenderable.userData.settings,
-          minValue: config.minValue,
-          maxValue: config.maxValue,
-        });
-      }
+      this.#imageRenderable?.setSettings({
+        ...this.#imageRenderable.userData.settings,
+        colorMode: config.colorMode,
+        flatColor: config.flatColor,
+        gradient: config.gradient as [string, string],
+        colorMap: config.colorMap,
+        explicitAlpha: config.explicitAlpha,
+        minValue: config.minValue,
+        maxValue: config.maxValue,
+      });
       if (config.synchronize !== prevImageModeConfig.synchronize) {
         this.removeAllRenderables();
       }
@@ -536,6 +561,35 @@ export class ImageMode
 
     // Update the settings sidebar
     this.updateSettingsTree();
+  };
+
+  public override getDropEffectForPath = (
+    path: DraggedMessagePath,
+  ): "add" | "replace" | undefined => {
+    if (!path.isTopic || path.rootSchemaName == undefined) {
+      return undefined;
+    }
+    if (ALL_SUPPORTED_IMAGE_SCHEMAS.has(path.rootSchemaName)) {
+      return "replace";
+    } else if (this.#annotations.supportedAnnotationSchemas.has(path.rootSchemaName)) {
+      return "add";
+    }
+    return undefined;
+  };
+
+  public override updateConfigForDropPath = (
+    draft: Writable<RendererConfig>,
+    path: DraggedMessagePath,
+  ): void => {
+    if (path.rootSchemaName == undefined) {
+      return;
+    }
+    if (ALL_SUPPORTED_IMAGE_SCHEMAS.has(path.rootSchemaName)) {
+      draft.imageMode.imageTopic = path.path;
+    } else if (this.#annotations.supportedAnnotationSchemas.has(path.rootSchemaName)) {
+      draft.imageMode.annotations ??= {};
+      draft.imageMode.annotations[path.path] = { visible: true };
+    }
   };
 
   #cameraInfoShouldSubscribe = (topic: string): boolean => {
@@ -626,10 +680,13 @@ export class ImageMode
     if (renderable) {
       return renderable;
     }
-
     const config = this.#getImageModeSettings();
+
     const userSettings: ImageRenderableSettings = {
       ...IMAGE_RENDERABLE_DEFAULT_SETTINGS,
+      colorMode: config.colorMode,
+      gradient: config.gradient as [string, string],
+      colorMap: config.colorMap,
       minValue: config.minValue,
       maxValue: config.maxValue,
       // planarProjectionFactor must be 1 to avoid imprecise projection due to small number of grid subdivisions
@@ -697,13 +754,14 @@ export class ImageMode
   #getImageModeSettings(): Immutable<ConfigWithDefaults> {
     const config = { ...this.renderer.config.imageMode };
 
-    return {
-      ...config,
-      synchronize: config.synchronize ?? DEFAULT_CONFIG.synchronize,
-      rotation: config.rotation ?? DEFAULT_CONFIG.rotation,
-      flipHorizontal: config.flipHorizontal ?? DEFAULT_CONFIG.flipHorizontal,
-      flipVertical: config.flipVertical ?? DEFAULT_CONFIG.flipVertical,
-    };
+    const colorMode =
+      config.colorMode === "rgba-fields"
+        ? DEFAULT_CONFIG.colorMode
+        : config.colorMode ?? DEFAULT_CONFIG.colorMode;
+
+    // Ensures that no required fields are left undefined
+    // rightmost values are applied last and have the most precedence
+    return _.merge({}, DEFAULT_CONFIG, { colorMode }, config);
   }
 
   /**
@@ -805,7 +863,7 @@ export class ImageMode
     this.updateSettingsTree();
   };
 
-  public getLatestImage(): DownloadImageInfo | undefined {
+  #getLatestImage(): DownloadImageInfo | undefined {
     if (!this.#latestImage) {
       return undefined;
     }
@@ -817,8 +875,93 @@ export class ImageMode
       flipVertical: settings.flipVertical,
       minValue: settings.minValue,
       maxValue: settings.maxValue,
+      colorMode: settings.colorMode,
+      colorMap: settings.colorMap,
+      gradient: settings.gradient as ColorModeSettings["gradient"],
+      explicitAlpha: settings.explicitAlpha,
+      flatColor: settings.flatColor,
     };
   }
+
+  #getDownloadImageCallback = (): (() => Promise<void>) => {
+    return async () => {
+      const currentImage = this.#getLatestImage();
+      if (!currentImage) {
+        return;
+      }
+
+      const { topic, image, rotation, flipHorizontal, flipVertical } = currentImage;
+      const stamp = "header" in image ? image.header.stamp : image.timestamp;
+      let bitmap: ImageBitmap;
+      try {
+        if ("format" in image) {
+          bitmap = await decodeCompressedImageToBitmap(image);
+        } else {
+          const imageData = new ImageData(image.width, image.height);
+          // currentImage passed for color settings access
+          decodeRawImage(image, currentImage, imageData.data);
+          bitmap = await createImageBitmap(imageData);
+        }
+
+        const width = rotation === 90 || rotation === 270 ? bitmap.height : bitmap.width;
+        const height = rotation === 90 || rotation === 270 ? bitmap.width : bitmap.height;
+
+        // re-render the image onto a new canvas to download the original image
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          throw new Error("Unable to create rendering context for image download");
+        }
+
+        // Draw the image in the selected orientation so it aligns with the canvas viewport
+        ctx.translate(width / 2, height / 2);
+        ctx.scale(flipHorizontal ? -1 : 1, flipVertical ? -1 : 1);
+        ctx.rotate((rotation / 180) * Math.PI);
+        ctx.translate(-bitmap.width / 2, -bitmap.height / 2);
+        ctx.drawImage(bitmap, 0, 0);
+
+        // read the canvas data as an image (png)
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((result) => {
+            if (result) {
+              resolve(result);
+            } else {
+              reject(`Failed to create an image from ${width}x${height} canvas`);
+            }
+          }, "image/png");
+        });
+        // name the image the same name as the topic
+        // note: the / characters in the file name will be replaced with _ by the browser
+        // remove any leading / so the image name doesn't start with _
+        const topicName = topic.replace(/^\/+/, "");
+        const fileName = `${topicName}-${stamp.sec}-${stamp.nsec}`;
+        void this.renderer.analytics?.logEvent(AppEvent.IMAGE_DOWNLOAD);
+        if (this.renderer.testOptions.onDownloadImage) {
+          this.renderer.testOptions.onDownloadImage(blob, fileName);
+        } else {
+          downloadFiles([{ blob, fileName }]);
+        }
+      } catch (error) {
+        log.error(error);
+        if (this.renderer.displayTemporaryError) {
+          this.renderer.displayTemporaryError((error as Error).toString());
+        }
+      }
+    };
+  };
+
+  public override getContextMenuItems = (): PanelContextMenuItem[] => {
+    return [
+      {
+        type: "item",
+        label: "Download image",
+        onclick: this.#getDownloadImageCallback(),
+        disabled: this.#latestImage == undefined,
+      },
+    ];
+  };
 }
 
 const createFallbackCameraInfoForImage = (options: {

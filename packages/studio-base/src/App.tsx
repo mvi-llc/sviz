@@ -8,6 +8,7 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 
 import GlobalCss from "@foxglove/studio-base/components/GlobalCss";
 import EventsProvider from "@foxglove/studio-base/providers/EventsProvider";
+import ProblemsContextProvider from "@foxglove/studio-base/providers/ProblemsContextProvider";
 import { StudioLogsSettingsProvider } from "@foxglove/studio-base/providers/StudioLogsSettingsProvider";
 import TimelineInteractionStateProvider from "@foxglove/studio-base/providers/TimelineInteractionStateProvider";
 
@@ -98,11 +99,16 @@ export function App(props: AppProps): JSX.Element {
   providers.unshift(<StudioToastProvider />);
   providers.unshift(<StudioLogsSettingsProvider />);
 
+  // Problems provider also must come before other, depdendent contexts.
+  providers.unshift(<ProblemsContextProvider />);
+
   const MaybeLaunchPreference = enableLaunchPreferenceScreen === true ? LaunchPreference : Fragment;
 
   useEffect(() => {
     document.addEventListener("contextmenu", contextMenuHandler);
-    return () => document.removeEventListener("contextmenu", contextMenuHandler);
+    return () => {
+      document.removeEventListener("contextmenu", contextMenuHandler);
+    };
   }, []);
 
   return (

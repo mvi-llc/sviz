@@ -136,7 +136,6 @@ function DataSourceOption(props: DataSourceOptionProps): JSX.Element {
       fullWidth
       color="inherit"
       variant="outlined"
-      size="large"
       startIcon={icon}
       onClick={onClick}
     >
@@ -514,7 +513,9 @@ export default function Start(): JSX.Element {
                   <ListItem disablePadding key={recent.id} id={recent.id}>
                     <ListItemButton
                       disableGutters
-                      onClick={() => selectRecent(recent.id)}
+                      onClick={() => {
+                        selectRecent(recent.id);
+                      }}
                       className={classes.recentListItemButton}
                     >
                       <TextMiddleTruncate

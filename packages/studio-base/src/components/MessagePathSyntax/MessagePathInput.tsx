@@ -11,9 +11,10 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { Stack } from "@mui/material";
-import { flatten, flatMap, partition } from "lodash";
+import { TextFieldProps } from "@mui/material";
+import * as _ from "lodash-es";
 import { CSSProperties, useCallback, useMemo } from "react";
+import { makeStyles } from "tss-react/mui";
 
 import { MessageDefinitionField } from "@foxglove/message-definition";
 import { Immutable } from "@foxglove/studio";
@@ -24,13 +25,12 @@ import useGlobalVariables, {
 } from "@foxglove/studio-base/hooks/useGlobalVariables";
 import { Topic } from "@foxglove/studio-base/players/types";
 import { RosDatatypes } from "@foxglove/studio-base/types/RosDatatypes";
-import { getTopicsByTopicName } from "@foxglove/studio-base/util/selectors";
 
 import { RosPath, RosPrimitive } from "./constants";
 import {
   traverseStructure,
   messagePathStructures,
-  messagePathsForDatatype,
+  messagePathsForStructure,
   validTerminatingStructureItem,
   StructureTraversalResult,
 } from "./messagePathsForDatatype";
@@ -124,7 +124,7 @@ export function getFirstInvalidVariableFromRosPath(
 ): { variableName: string; loc: number } | undefined {
   const { messagePath } = rosPath;
   const globalVars = Object.keys(globalVariables);
-  return flatMap(messagePath, (path) => {
+  return _.flatMap(messagePath, (path) => {
     const messagePathParts = [];
     if (
       path.type === "filter" &&
@@ -181,7 +181,12 @@ type MessagePathInputBaseProps = {
   disableAutocomplete?: boolean; // Treat this as a normal input, with no autocomplete.
   readOnly?: boolean;
   prioritizedDatatype?: string;
+  variant?: TextFieldProps["variant"];
 };
+
+const useStyles = makeStyles()({
+  root: { flexGrow: 1 },
+});
 
 export default React.memo<MessagePathInputBaseProps>(function MessagePathInput(
   props: MessagePathInputBaseProps,
@@ -199,13 +204,14 @@ export default React.memo<MessagePathInputBaseProps>(function MessagePathInput(
     noMultiSlices,
     inputStyle,
     disableAutocomplete = false,
+    variant = "standard",
   } = props;
-
+  const { classes } = useStyles();
   const topicFields = useMemo(() => getFieldPaths(topics, datatypes), [datatypes, topics]);
 
   const onChangeProp = props.onChange;
   const onChange = useCallback(
-    (event: React.SyntheticEvent<Element>, rawValue: string) => {
+    (event: React.SyntheticEvent, rawValue: string) => {
       // When typing a "{" character, also  insert a "}", so you get an
       // autocomplete window immediately for selecting a filter name.
       let value = rawValue;
@@ -213,7 +219,9 @@ export default React.memo<MessagePathInputBaseProps>(function MessagePathInput(
         const target = event.target as HTMLInputElement;
         const newCursorPosition = target.selectionEnd ?? 0;
         value = `${value.slice(0, newCursorPosition)}}${value.slice(newCursorPosition)}`;
-        setImmediate(() => target.setSelectionRange(newCursorPosition, newCursorPosition));
+        setImmediate(() => {
+          target.setSelectionRange(newCursorPosition, newCursorPosition);
+        });
       }
       onChangeProp(value, props.index);
     },
@@ -250,7 +258,9 @@ export default React.memo<MessagePathInputBaseProps>(function MessagePathInput(
       // have just autocompleted a name inside that filter).
       if (keepGoingAfterTopicName || value.includes("{") || path.includes("{")) {
         const newCursorPosition = autocompleteRange.start + value.length;
-        setImmediate(() => autocomplete.setSelectionRange(newCursorPosition, newCursorPosition));
+        setImmediate(() => {
+          autocomplete.setSelectionRange(newCursorPosition, newCursorPosition);
+        });
       } else {
         autocomplete.blur();
       }
@@ -333,6 +343,8 @@ export default React.memo<MessagePathInputBaseProps>(function MessagePathInput(
     return undefined;
   }, [invalidGlobalVariablesVariable, structureTraversalResult, validTypes, rosPath, topic]);
 
+  const structures = useMemo(() => messagePathStructures(datatypes), [datatypes]);
+
   const { autocompleteItems, autocompleteFilterText, autocompleteRange } = useMemo(() => {
     if (disableAutocomplete) {
       return {
@@ -386,11 +398,13 @@ export default React.memo<MessagePathInputBaseProps>(function MessagePathInput(
         const initialFilterLength =
           rosPath.messagePath[0]?.type === "filter" ? rosPath.messagePath[0].repr.length + 2 : 0;
 
+        const structure = topic.schemaName != undefined ? structures[topic.schemaName] : undefined;
+
         return {
           autocompleteItems:
-            topic.schemaName == undefined
+            structure == undefined
               ? []
-              : messagePathsForDatatype(topic.schemaName, datatypes, {
+              : messagePathsForStructure(structure, {
                   validTypes,
                   noMultiSlices,
                   messagePath: rosPath.messagePath,
@@ -439,27 +453,29 @@ export default React.memo<MessagePathInputBaseProps>(function MessagePathInput(
     rosPath,
     invalidGlobalVariablesVariable,
     path,
-    topicNamesAutocompleteItems,
     topicNamesAndFieldsAutocompleteItems,
+    topicNamesAutocompleteItems,
     structureTraversalResult,
-    datatypes,
+    structures,
     validTypes,
     noMultiSlices,
     globalVariables,
   ]);
+
+  const topicsByName = useMemo(() => _.keyBy(topics, ({ name }) => name), [topics]);
 
   const orderedAutocompleteItems = useMemo(() => {
     if (prioritizedDatatype == undefined) {
       return autocompleteItems;
     }
 
-    return flatten(
-      partition(
+    return _.flatten(
+      _.partition(
         autocompleteItems,
-        (item) => getTopicsByTopicName(topics)[item]?.schemaName === prioritizedDatatype,
+        (item) => topicsByName[item]?.schemaName === prioritizedDatatype,
       ),
     );
-  }, [autocompleteItems, prioritizedDatatype, topics]);
+  }, [autocompleteItems, prioritizedDatatype, topicsByName]);
 
   const usesUnsupportedMathModifier =
     (supportsMathModifiers == undefined || !supportsMathModifiers) && path.includes(".@");
@@ -469,33 +485,26 @@ export default React.memo<MessagePathInputBaseProps>(function MessagePathInput(
     (autocompleteType != undefined && !disableAutocomplete && path.length > 0);
 
   return (
-    <Stack
-      direction="row"
-      justifyContent="space-between"
-      alignItems="center"
-      flexGrow={1}
-      flexShrink={0}
-      spacing={0.25}
-    >
-      <Autocomplete
-        items={orderedAutocompleteItems}
-        disabled={props.disabled}
-        readOnly={props.readOnly}
-        filterText={autocompleteFilterText}
-        value={path}
-        onChange={onChange}
-        onSelect={(value, autocomplete) =>
-          onSelect(value, autocomplete, autocompleteType, autocompleteRange)
-        }
-        hasError={hasError}
-        placeholder={
-          placeholder != undefined && placeholder !== "" ? placeholder : "/some/topic.msgs[0].field"
-        }
-        autoSize={autoSize}
-        inputStyle={inputStyle} // Disable autoselect since people often construct complex queries, and it's very annoying
-        // to have the entire input selected whenever you want to make a change to a part it.
-        disableAutoSelect
-      />
-    </Stack>
+    <Autocomplete
+      className={classes.root}
+      variant={variant}
+      items={orderedAutocompleteItems}
+      disabled={props.disabled}
+      readOnly={props.readOnly}
+      filterText={autocompleteFilterText}
+      value={path}
+      onChange={onChange}
+      onSelect={(value, autocomplete) => {
+        onSelect(value, autocomplete, autocompleteType, autocompleteRange);
+      }}
+      hasError={hasError}
+      placeholder={
+        placeholder != undefined && placeholder !== "" ? placeholder : "/some/topic.msgs[0].field"
+      }
+      autoSize={autoSize}
+      inputStyle={inputStyle} // Disable autoselect since people often construct complex queries, and it's very annoying
+      // to have the entire input selected whenever you want to make a change to a part it.
+      disableAutoSelect
+    />
   );
 });

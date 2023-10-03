@@ -4,7 +4,7 @@
 
 import { TFunction } from "i18next";
 import { produce } from "immer";
-import { isEqual, isNumber, set } from "lodash";
+import * as _ from "lodash-es";
 import memoizeWeak from "memoize-weak";
 import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,18 +17,27 @@ import { lineColors } from "@foxglove/studio-base/util/plotColors";
 
 import { plotableRosTypes, PlotConfig, plotPathDisplayName } from "./types";
 
+export const DEFAULT_PATH: PlotPath = Object.freeze({
+  timestampMethod: "receiveTime",
+  value: "",
+  enabled: true,
+});
+
 const makeSeriesNode = memoizeWeak(
-  (path: PlotPath, index: number, t: TFunction<"plot">): SettingsTreeNode => {
+  // eslint-disable-next-line @foxglove/no-boolean-parameters
+  (path: PlotPath, index: number, canDelete: boolean, t: TFunction<"plot">): SettingsTreeNode => {
     return {
-      actions: [
-        {
-          type: "action",
-          id: "delete-series",
-          label: t("deleteSeries"),
-          display: "inline",
-          icon: "Clear",
-        },
-      ],
+      actions: canDelete
+        ? [
+            {
+              type: "action",
+              id: "delete-series",
+              label: t("deleteSeries"),
+              display: "inline",
+              icon: "Clear",
+            },
+          ]
+        : [],
       label: plotPathDisplayName(path, index),
       visible: path.enabled,
       fields: {
@@ -71,7 +80,12 @@ const makeSeriesNode = memoizeWeak(
 const makeRootSeriesNode = memoizeWeak(
   (paths: PlotPath[], t: TFunction<"plot">): SettingsTreeNode => {
     const children = Object.fromEntries(
-      paths.map((path, index) => [`${index}`, makeSeriesNode(path, index, t)]),
+      paths.length === 0
+        ? [["0", makeSeriesNode(DEFAULT_PATH, 0, /*canDelete=*/ false, t)]]
+        : paths.map((path, index) => [
+            `${index}`,
+            makeSeriesNode(path, index, /*canDelete=*/ true, t),
+          ]),
     );
     return {
       label: t("series"),
@@ -91,12 +105,16 @@ const makeRootSeriesNode = memoizeWeak(
 
 function buildSettingsTree(config: PlotConfig, t: TFunction<"plot">): SettingsTreeNodes {
   const maxYError =
-    isNumber(config.minYValue) && isNumber(config.maxYValue) && config.minYValue >= config.maxYValue
+    _.isNumber(config.minYValue) &&
+    _.isNumber(config.maxYValue) &&
+    config.minYValue >= config.maxYValue
       ? t("maxYError")
       : undefined;
 
   const maxXError =
-    isNumber(config.minXValue) && isNumber(config.maxXValue) && config.minXValue >= config.maxXValue
+    _.isNumber(config.minXValue) &&
+    _.isNumber(config.maxXValue) &&
+    config.minXValue >= config.maxXValue
       ? t("maxXError")
       : undefined;
 
@@ -221,18 +239,21 @@ export function usePlotPanelSettings(
         saveConfig(
           produce((draft) => {
             if (path[0] === "paths") {
-              if (path[2] === "visible") {
-                set(draft, [...path.slice(0, 2), "enabled"], value);
-              } else {
-                set(draft, path, value);
+              if (draft.paths.length === 0) {
+                draft.paths.push({ ...DEFAULT_PATH });
               }
-            } else if (isEqual(path, ["legend", "legendDisplay"])) {
+              if (path[2] === "visible") {
+                _.set(draft, [...path.slice(0, 2), "enabled"], value);
+              } else {
+                _.set(draft, path, value);
+              }
+            } else if (_.isEqual(path, ["legend", "legendDisplay"])) {
               draft.legendDisplay = value;
               draft.showLegend = true;
-            } else if (isEqual(path, ["xAxis", "xAxisPath"])) {
-              set(draft, ["xAxisPath", "value"], value);
+            } else if (_.isEqual(path, ["xAxis", "xAxisPath"])) {
+              _.set(draft, ["xAxisPath", "value"], value);
             } else {
-              set(draft, path.slice(1), value);
+              _.set(draft, path.slice(1), value);
 
               // X min/max and following width are mutually exclusive.
               if (path[1] === "followingViewWidth") {
@@ -248,11 +269,10 @@ export function usePlotPanelSettings(
         if (action.payload.id === "add-series") {
           saveConfig(
             produce<PlotConfig>((draft) => {
-              draft.paths.push({
-                timestampMethod: "receiveTime",
-                value: "",
-                enabled: true,
-              });
+              if (draft.paths.length === 0) {
+                draft.paths.push({ ...DEFAULT_PATH });
+              }
+              draft.paths.push({ ...DEFAULT_PATH });
             }),
           );
         } else if (action.payload.id === "delete-series") {

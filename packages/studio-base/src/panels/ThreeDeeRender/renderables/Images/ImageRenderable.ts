@@ -18,31 +18,29 @@ import { RosValue } from "@foxglove/studio-base/players/types";
 
 import { AnyImage, CompressedVideo } from "./ImageTypes";
 import {
-  RawImageOptions,
   decodeCompressedImageToBitmap,
   decodeCompressedVideoToBitmap,
   emptyVideoFrame,
   getVideoDecoderConfig,
 } from "./decodeImage";
 import { CameraInfo } from "../../ros";
+import { ColorModeSettings } from "../colorMode";
 
 const log = Logger.getLogger(__filename);
 
-export interface ImageRenderableSettings {
+export interface ImageRenderableSettings extends Partial<ColorModeSettings> {
   visible: boolean;
   frameLocked?: boolean;
   cameraInfoTopic: string | undefined;
   distance: number;
   planarProjectionFactor: number;
   color: string;
-  minValue?: number;
-  maxValue?: number;
 }
 
 const IMAGE_FORMATS = new Set(["jpeg", "png", "webp"]);
 const VIDEO_FORMATS = new Set(["h264"]);
 
-const CREATE_BITMAP_ERR_KEY = "CreateBitmap";
+const DECODE_IMAGE_ERR_KEY = "CreateBitmap";
 const IMAGE_TOPIC_PATH = ["imageMode", "imageTopic"];
 
 const DEFAULT_DISTANCE = 1;
@@ -55,6 +53,7 @@ export const IMAGE_RENDERABLE_DEFAULT_SETTINGS: ImageRenderableSettings = {
   planarProjectionFactor: DEFAULT_PLANAR_PROJECTION_FACTOR,
   color: "#ffffff",
 };
+
 export type ImageUserData = BaseUserData & {
   topic: string;
   settings: ImageRenderableSettings;
@@ -90,16 +89,11 @@ export class ImageRenderable extends Renderable<ImageUserData> {
   #decoder?: WorkerImageDecoder;
   #receivedImageSequenceNumber = 0;
   #displayedImageSequenceNumber = 0;
-  #rawImageOptions: RawImageOptions;
 
   #disposed = false;
 
   public constructor(topicName: string, renderer: IRenderer, userData: ImageUserData) {
     super(topicName, renderer, userData);
-    this.#rawImageOptions = {
-      minValue: userData.settings.minValue,
-      maxValue: userData.settings.maxValue,
-    };
   }
 
   public override dispose(): void {
@@ -165,16 +159,20 @@ export class ImageRenderable extends Renderable<ImageUserData> {
     }
 
     if (
+      prevSettings.colorMode !== newSettings.colorMode ||
+      prevSettings.flatColor !== newSettings.flatColor ||
+      prevSettings.gradient !== newSettings.gradient ||
+      prevSettings.colorMap !== newSettings.colorMap ||
       prevSettings.minValue !== newSettings.minValue ||
       prevSettings.maxValue !== newSettings.maxValue
     ) {
-      this.#rawImageOptions.minValue = newSettings.minValue;
-      this.#rawImageOptions.maxValue = newSettings.maxValue;
+      this.userData.settings = newSettings;
       // Decode the current image again, which takes into account the new options
       const image = this.userData.image;
       if (image) {
         this.setImage(image);
       }
+      return;
     }
 
     this.userData.settings = newSettings;
@@ -191,10 +189,10 @@ export class ImageRenderable extends Renderable<ImageUserData> {
       if (this.#disposed) {
         return;
       }
-      this.renderer.settings.errors.add(IMAGE_TOPIC_PATH, CREATE_BITMAP_ERR_KEY, err.message);
+      this.renderer.settings.errors.add(IMAGE_TOPIC_PATH, DECODE_IMAGE_ERR_KEY, err.message);
       this.renderer.settings.errors.addToTopic(
         this.userData.topic,
-        CREATE_BITMAP_ERR_KEY,
+        DECODE_IMAGE_ERR_KEY,
         err.message,
       );
     };
@@ -213,8 +211,12 @@ export class ImageRenderable extends Renderable<ImageUserData> {
 
         if (!this.videoPlayer) {
           this.videoPlayer = new VideoPlayer();
-          this.videoPlayer.on("error", (err) => setError(err));
-          this.videoPlayer.on("warn", (msg) => log.warn(msg));
+          this.videoPlayer.on("error", (err) => {
+            setError(err);
+          });
+          this.videoPlayer.on("warn", (msg) => {
+            log.warn(msg);
+          });
         }
         const videoPlayer = this.videoPlayer;
 
@@ -248,7 +250,7 @@ export class ImageRenderable extends Renderable<ImageUserData> {
     } else {
       decodePromise = (this.#decoder ??= new WorkerImageDecoder()).decode(
         image,
-        this.#rawImageOptions,
+        this.userData.settings,
       );
     }
 
@@ -267,11 +269,13 @@ export class ImageRenderable extends Renderable<ImageUserData> {
         this.update();
 
         onDecoded?.(result);
-        this.renderer.settings.errors.remove(IMAGE_TOPIC_PATH, CREATE_BITMAP_ERR_KEY);
-        this.renderer.settings.errors.removeFromTopic(this.userData.topic, CREATE_BITMAP_ERR_KEY);
+        this.renderer.settings.errors.remove(IMAGE_TOPIC_PATH, DECODE_IMAGE_ERR_KEY);
+        this.renderer.settings.errors.removeFromTopic(this.userData.topic, DECODE_IMAGE_ERR_KEY);
         this.renderer.queueAnimationFrame();
       })
-      .catch((err) => setError(new Error(`Error creating bitmap: ${err.message}`)));
+      .catch((err) => {
+        setError(new Error(`Error creating bitmap: ${err.message}`));
+      });
   }
 
   public update(): void {
@@ -443,7 +447,7 @@ function createCanvasTexture(bitmap: ImageBitmap): THREE.CanvasTexture {
     THREE.UnsignedByteType,
   );
   texture.generateMipmaps = false;
-  texture.encoding = THREE.sRGBEncoding;
+  texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
 
@@ -460,7 +464,7 @@ function createDataTexture(imageData: ImageData): THREE.DataTexture {
     THREE.NearestFilter,
     THREE.LinearFilter,
     1,
-    THREE.sRGBEncoding,
+    THREE.SRGBColorSpace,
   );
   dataTexture.needsUpdate = true; // ensure initial image data is displayed
   return dataTexture;

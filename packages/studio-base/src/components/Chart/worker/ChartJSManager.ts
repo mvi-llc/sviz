@@ -21,9 +21,11 @@ import { Zoom as ZoomPlugin } from "@foxglove/chartjs-plugin-zoom";
 import Logger from "@foxglove/log";
 import { RpcElement, RpcScales } from "@foxglove/studio-base/components/Chart/types";
 import { maybeCast } from "@foxglove/studio-base/util/maybeCast";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
+import { fontMonospace } from "@foxglove/theme";
 
 import { lineSegmentLabelColor } from "./lineSegments";
+import { proxyTyped } from "./proxy";
+import { TypedChartData } from "../types";
 
 const log = Logger.getLogger(__filename);
 
@@ -90,6 +92,16 @@ export default class ChartJSManager {
     const font = await fontLoaded;
     log.debug(`ChartJSManager(${id}) init, default font "${font.family}" status=${font.status}`);
 
+    // the types are wrong on `init`, but we will fix this soon
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (data != undefined) {
+      for (const ds of data.datasets) {
+        ds.segment = {
+          borderColor: lineSegmentLabelColor,
+        };
+      }
+    }
+
     const fakeNode = {
       addEventListener: addEventListener(this.#fakeNodeEvents),
       removeEventListener: removeEventListener(this.#fakeNodeEvents),
@@ -114,7 +126,7 @@ export default class ChartJSManager {
     const fullOptions: ChartOptions = {
       ...this.#addFunctionsToConfig(options),
       devicePixelRatio,
-      font: { family: fonts.MONOSPACE },
+      font: { family: fontMonospace },
       // we force responsive off since we manually trigger width/height updates on the chart
       // responsive mode does not work properly with offscreen canvases and retina device pixel ratios
       // it results in a run-away canvas that keeps doubling in size!
@@ -187,12 +199,14 @@ export default class ChartJSManager {
     height,
     isBoundsReset,
     data,
+    typedData,
   }: {
     options?: ChartOptions;
     width?: number;
     height?: number;
     isBoundsReset: boolean;
     data?: ChartData<"scatter">;
+    typedData?: TypedChartData;
   }): RpcScales {
     const instance = this.#chartInstance;
     if (instance == undefined) {
@@ -259,6 +273,10 @@ export default class ChartJSManager {
 
     if (data != undefined) {
       instance.data = data;
+    }
+
+    if (typedData != undefined) {
+      instance.data = proxyTyped(typedData);
     }
 
     // While the chartjs API doesn't indicate update should be called after resize, in practice

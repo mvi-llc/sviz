@@ -103,9 +103,9 @@ export const WhenSelectingATopicSchemaIsSuggested: Story = {
       await keyboard("[Enter]");
     });
 
-    expect(topicInput).toHaveValue("/sample_topic");
-    expect(valueTextarea).toHaveValue(advancedJSON);
-    expect(schemaInput).toHaveValue("std_msgs/String");
+    await expect(topicInput).toHaveValue("/sample_topic");
+    await expect(valueTextarea).toHaveValue(advancedJSON);
+    await expect(schemaInput).toHaveValue("std_msgs/String");
   },
   parameters: { colorScheme: "light" },
 };
@@ -133,7 +133,9 @@ export const PublishEnabledWithCustomButtonSettings: Story = {
     const canvas = within(canvasElement);
     const buttons = await canvas.findAllByText("Send message");
 
-    buttons.forEach(async (button) => await userEvent.hover(button));
+    buttons.forEach(async (button) => {
+      await userEvent.hover(button);
+    });
   },
 };
 
@@ -225,7 +227,9 @@ export const PublishEnabledWithCustomButtonSettingsEditingOff: Story = {
     const canvas = within(canvasElement);
     const buttons = await canvas.findAllByText("Send message");
 
-    buttons.forEach(async (button) => await userEvent.hover(button));
+    buttons.forEach(async (button) => {
+      await userEvent.hover(button);
+    });
   },
 };
 

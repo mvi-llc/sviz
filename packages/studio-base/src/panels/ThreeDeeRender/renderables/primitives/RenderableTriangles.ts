@@ -120,12 +120,18 @@ export class RenderableTriangles extends RenderablePrimitive {
         geometry.computeBoundingSphere();
         geometry.attributes.position!.needsUpdate = true;
       }
-
-      // covers the case where a geometry went from being defined by a single color to vertex colors
-      // but there was no difference in the vertex colors that already existed and the new ones
-      // we can tell this by checking the current vertexColors of the material, if false -> previously singleColor
-      colorChanged = !material.vertexColors && !singleColor && primitive.colors.length > 0;
       if (colorChanged) {
+        geometry.attributes.color!.needsUpdate = true;
+      }
+
+      // covers the case where a geometry went from being defined by a single
+      // color to vertex colors but there was no difference in the vertex
+      // colors that already existed and the new ones we can tell this by
+      // checking the current vertexColors of the material, if false ->
+      // previously singleColor
+      const vertexColorChanged =
+        !material.vertexColors && !singleColor && primitive.colors.length > 0;
+      if (vertexColorChanged) {
         material.vertexColors = true;
         // need to set overall material color back or else it will blend them with the vertex colors
         material.color.setRGB(1, 1, 1);
@@ -160,7 +166,6 @@ export class RenderableTriangles extends RenderablePrimitive {
           const array = new Uint32Array(Math.round(indices.length * 1.5) + 16);
           array.set(indices);
           geometry.index = new THREE.BufferAttribute(array, 1);
-          geometry.index.count = indices.length;
         } else {
           const array = geometry.index.array as Uint32Array;
           let needsUpdate = false;

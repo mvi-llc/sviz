@@ -3,7 +3,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook } from "@testing-library/react";
 
 import MockMessagePipelineProvider from "@foxglove/studio-base/components/MessagePipeline/MockMessagePipelineProvider";
 import { Progress } from "@foxglove/studio-base/players/types";
@@ -20,6 +20,7 @@ describe("useAllFramesByTopic", () => {
             messagesByTopic: {
               topic_a: [mockMessage("message", { topic: "topic_a" })],
             },
+            needTopics: new Map(),
             sizeInBytes: 1,
           },
         ],
@@ -27,18 +28,17 @@ describe("useAllFramesByTopic", () => {
       },
     };
 
-    const topics = ["topic_a", "topic_b"];
+    const topics = [{ topic: "topic_a" }, { topic: "topic_b" }];
 
+    let progress = initialProgress;
     const { result, rerender } = renderHook(() => useAllFramesByTopic(topics), {
-      initialProps: { progress: initialProgress },
-      wrapper: ({ children, progress }) => (
+      wrapper: ({ children }) => (
         <MockMessagePipelineProvider progress={progress}>{children}</MockMessagePipelineProvider>
       ),
     });
 
     expect(result.current).toEqual({
       topic_a: [expect.objectContaining({ topic: "topic_a" })],
-      topic_b: [],
     });
 
     const updatedProgress: Progress = {
@@ -51,13 +51,15 @@ describe("useAllFramesByTopic", () => {
               topic_b: [mockMessage("message", { topic: "topic_b" })],
             },
             sizeInBytes: 1,
+            needTopics: new Map(),
           },
         ],
         startTime: { sec: 0, nsec: 0 },
       },
     };
 
-    rerender({ progress: updatedProgress });
+    progress = updatedProgress;
+    rerender();
 
     expect(result.current).toEqual({
       topic_a: [

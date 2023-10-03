@@ -10,7 +10,7 @@ import {
   PointCloudHistoryRenderable,
 } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/PointClouds";
 import type { RosObject } from "@foxglove/studio-base/players/types";
-import { VelodynePacket, VelodyneScan } from "@foxglove/studio-base/types/Messages";
+import { VelodyneScan } from "@foxglove/studio-base/types/Messages";
 import {
   Calibration,
   Model,
@@ -76,7 +76,7 @@ class VelodyneCloudConverter {
       return undefined;
     }
 
-    const firstPacketData = scan.packets[0] as VelodynePacket;
+    const firstPacketData = scan.packets[0]!;
     const model = RawPacket.InferModel(firstPacketData.data);
     if (model == undefined) {
       return undefined;
@@ -124,11 +124,12 @@ class VelodyneCloudConverter {
 }
 
 export class VelodyneScans extends SceneExtension<PointCloudHistoryRenderable> {
+  public static extensionId = "foxglove.VelodyneScans";
   #pointCloudFieldsByTopic = new Map<string, string[]>();
   #velodyneCloudConverter = new VelodyneCloudConverter();
 
-  public constructor(renderer: IRenderer) {
-    super("foxglove.VelodyneScans", renderer);
+  public constructor(renderer: IRenderer, name: string = VelodyneScans.extensionId) {
+    super(name, renderer);
   }
 
   public override getSubscriptions(): readonly AnyRendererSubscription[] {

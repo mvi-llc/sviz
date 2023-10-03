@@ -11,18 +11,17 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { padStart } from "lodash";
+import * as _ from "lodash-es";
 import { makeStyles } from "tss-react/mui";
 
 import useLogStyles from "@foxglove/studio-base/panels/Log/useLogStyles";
 import { TimeDisplayMethod } from "@foxglove/studio-base/types/panels";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 import LevelToString from "./LevelToString";
 import Stamp from "./Stamp";
 import { NormalizedLogMessage } from "./types";
 
-const useStyles = makeStyles()({
+const useStyles = makeStyles()((theme) => ({
   root: {
     // Subsequent lines are indented bu using left padding, so we undo the padding for the first line
     // with textIndent
@@ -32,9 +31,9 @@ const useStyles = makeStyles()({
     paddingTop: 1,
     paddingBottom: 1,
     lineHeight: 1,
-    fontFamily: fonts.MONOSPACE,
+    fontFamily: theme.typography.fontMonospace,
   },
-});
+}));
 
 export default React.memo(function LogMessage(props: {
   value: NormalizedLogMessage;
@@ -66,7 +65,7 @@ export default React.memo(function LogMessage(props: {
       })}
     >
       <div>
-        <span>[{padStart(strLevel, 5, " ")}]</span>
+        <span>[{_.padStart(strLevel, 5, " ")}]</span>
         <span>
           [<Stamp stamp={stamp} timestampFormat={timestampFormat} timeZone={timeZone} />]
         </span>

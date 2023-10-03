@@ -2,9 +2,8 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { ArrowDownload20Filled } from "@fluentui/react-icons";
+import { ArrowDownload20Filled, Delete20Regular } from "@fluentui/react-icons";
 import CloseIcon from "@mui/icons-material/Close";
-import DeleteOutline from "@mui/icons-material/DeleteOutline";
 import {
   Button,
   IconButton,
@@ -22,7 +21,6 @@ import CopyButton from "@foxglove/studio-base/components/CopyButton";
 import HoverableIconButton from "@foxglove/studio-base/components/HoverableIconButton";
 import Stack from "@foxglove/studio-base/components/Stack";
 import { downloadTextFile } from "@foxglove/studio-base/util/download";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 export type ShareJsonModalProps = {
   onRequestClose: () => void;
@@ -35,7 +33,7 @@ const useStyles = makeStyles()((theme) => ({
   textarea: {
     [`.${outlinedInputClasses.root}`]: {
       backgroundColor: theme.palette.action.hover,
-      fontFamily: fonts.MONOSPACE,
+      fontFamily: theme.typography.fontMonospace,
       maxHeight: "60vh",
       overflowY: "auto",
       padding: theme.spacing(0.25),
@@ -97,7 +95,9 @@ export function ShareJsonModal({
           multiline
           rows={10}
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => {
+            setValue(event.target.value);
+          }}
           autoFocus
           error={error != undefined}
           helperText={
@@ -113,24 +113,21 @@ export function ShareJsonModal({
           <IconButton onClick={handleDownload} title="Download" aria-label="Download">
             <ArrowDownload20Filled />
           </IconButton>
-          <CopyButton color="default" getText={getText} />
+          <CopyButton color="inherit" getText={getText} />
           <HoverableIconButton
             activeColor="error"
-            onClick={() => setValue("{}")}
+            onClick={() => {
+              setValue("{}");
+            }}
             title="Clear"
             aria-label="Clear"
-            icon={<DeleteOutline />}
+            icon={<Delete20Regular />}
           />
         </Stack>
 
         <Stack flex="auto" />
 
-        <Button
-          disabled={error != undefined}
-          variant="contained"
-          size="large"
-          onClick={handleSubmit}
-        >
+        <Button disabled={error != undefined} variant="contained" onClick={handleSubmit}>
           Apply
         </Button>
       </DialogActions>

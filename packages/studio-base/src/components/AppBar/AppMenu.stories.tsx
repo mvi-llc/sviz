@@ -5,12 +5,14 @@
 import { PopoverPosition, PopoverReference } from "@mui/material";
 import { Meta, StoryObj } from "@storybook/react";
 import { userEvent, within } from "@storybook/testing-library";
+import * as _ from "lodash-es";
 
 import { AppBarMenuItem } from "@foxglove/studio-base/components/AppBar/types";
 import { AppContext } from "@foxglove/studio-base/context/AppContext";
 import PlayerSelectionContext, {
   PlayerSelection,
 } from "@foxglove/studio-base/context/PlayerSelectionContext";
+import MockCurrentLayoutProvider from "@foxglove/studio-base/providers/CurrentLayoutProvider/MockCurrentLayoutProvider";
 import WorkspaceContextProvider from "@foxglove/studio-base/providers/WorkspaceContextProvider";
 
 import { AppMenu } from "./AppMenu";
@@ -34,18 +36,18 @@ export default {
     anchorPosition: { top: 0, left: 0 },
     anchorReference: "anchorPosition",
     disablePortal: true,
-    handleClose: () => {
-      // no-op
-    },
+    handleClose: _.noop,
   },
   decorators: [
-    (Story, { args: { testId: _, ...args } }): JSX.Element => (
+    (Story, { args: { testId: _testId, ...args } }): JSX.Element => (
       <AppContext.Provider value={{ appBarMenuItems: args.appBarMenuItems }}>
-        <WorkspaceContextProvider>
-          <PlayerSelectionContext.Provider value={playerSelection}>
-            <Story {...args} />
-          </PlayerSelectionContext.Provider>
-        </WorkspaceContextProvider>
+        <MockCurrentLayoutProvider>
+          <WorkspaceContextProvider>
+            <PlayerSelectionContext.Provider value={playerSelection}>
+              <Story {...args} />
+            </PlayerSelectionContext.Provider>
+          </WorkspaceContextProvider>
+        </MockCurrentLayoutProvider>
       </AppContext.Provider>
     ),
   ],

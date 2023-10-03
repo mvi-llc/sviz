@@ -35,7 +35,7 @@ export type LoadedModel = THREE.Group | THREE.Scene;
 
 type ErrorCallback = (err: Error) => void;
 
-const DEFAULT_COLOR = new THREE.Color(0x248eff).convertSRGBToLinear();
+const DEFAULT_COLOR = new THREE.Color(0x248eff);
 
 const GLTF_MIME_TYPES = ["model/gltf", "model/gltf-binary", "model/gltf+json"];
 // Sourced from <https://github.com/Ultimaker/Cura/issues/4141>
@@ -198,7 +198,9 @@ export class ModelCache {
     const upAxis = ignoreUpAxis
       ? "Z_UP"
       : (xml.querySelector("up_axis")?.textContent ?? "Y_UP").trim().toUpperCase();
-    xml.querySelectorAll("up_axis").forEach((node) => node.remove());
+    xml.querySelectorAll("up_axis").forEach((node) => {
+      node.remove();
+    });
     const xmlText = xml.documentElement.outerHTML;
 
     const manager = new THREE.LoadingManager(undefined, undefined, onError);

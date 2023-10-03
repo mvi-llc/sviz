@@ -9,7 +9,6 @@ import tinycolor from "tinycolor2";
 import { makeStyles } from "tss-react/mui";
 
 import Stack from "@foxglove/studio-base/components/Stack";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 import { ColorPickerControl } from "./ColorPickerControl";
 import { ColorSwatch } from "./ColorSwatch";
@@ -26,6 +25,7 @@ const useStyles = makeStyles<void, "iconButton">()((theme, _params, classes) => 
       padding: 0,
     },
     ".MuiInputBase-root": {
+      fontFamily: theme.typography.fontMonospace,
       cursor: "pointer",
 
       [`:not(:hover) .${classes.iconButton}`]: {
@@ -34,7 +34,7 @@ const useStyles = makeStyles<void, "iconButton">()((theme, _params, classes) => 
     },
     ".MuiInputBase-input": {
       alignItems: "center",
-      fontFeatureSettings: `${fonts.SANS_SERIF_FEATURE_SETTINGS}, "zero"`,
+      fontFeatureSettings: `${theme.typography.fontFeatureSettings}, "zero"`,
     },
   },
   iconButton: {

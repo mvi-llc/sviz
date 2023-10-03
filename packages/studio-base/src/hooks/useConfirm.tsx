@@ -50,22 +50,27 @@ function ConfirmModal(props: ConfirmModalProps) {
     [originalOnComplete],
   );
 
-  useKeyPressEvent("Enter", () => onComplete("ok"));
+  useKeyPressEvent("Enter", () => {
+    onComplete("ok");
+  });
 
   // Ensure we still call onComplete(undefined) when the component unmounts, if it hasn't been
   // called already
   useEffect(() => {
-    return () => onComplete("cancel");
+    return () => {
+      onComplete("cancel");
+    };
   }, [onComplete]);
 
   const buttons = [
     props.cancel !== false && (
       <Button
-        size="large"
         variant="outlined"
         color="inherit"
         key="cancel"
-        onClick={() => onComplete("cancel")}
+        onClick={() => {
+          onComplete("cancel");
+        }}
       >
         {props.cancel ?? "Cancel"}
       </Button>
@@ -73,7 +78,6 @@ function ConfirmModal(props: ConfirmModalProps) {
     <Button
       key="confirm"
       variant="contained"
-      size="large"
       color={props.variant === "danger" ? "error" : "primary"}
       type="submit"
     >
@@ -85,7 +89,14 @@ function ConfirmModal(props: ConfirmModalProps) {
   }
 
   return (
-    <Dialog open onClose={() => onComplete("cancel")} maxWidth="xs" fullWidth>
+    <Dialog
+      open
+      onClose={() => {
+        onComplete("cancel");
+      }}
+      maxWidth="xs"
+      fullWidth
+    >
       <form
         onSubmit={(event) => {
           event.preventDefault();

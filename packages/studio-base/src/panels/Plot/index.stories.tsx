@@ -12,10 +12,11 @@
 //   You may not use this file except in compliance with the License.
 
 import { StoryObj } from "@storybook/react";
-import { screen, userEvent } from "@storybook/testing-library";
+import { screen, userEvent, waitFor } from "@storybook/testing-library";
 import { produce } from "immer";
-import { shuffle } from "lodash";
-import { useCallback, useRef, useState } from "react";
+import * as _ from "lodash-es";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAsync } from "react-use";
 import { makeStyles } from "tss-react/mui";
 
 import { fromSec } from "@foxglove/rostime";
@@ -223,6 +224,7 @@ const getPreloadedMessage = (seconds: number) => ({
 const emptyBlock = {
   messagesByTopic: {},
   sizeInBytes: 0,
+  needTopics: new Map(),
 };
 
 const messageCache: BlockCache = {
@@ -230,6 +232,7 @@ const messageCache: BlockCache = {
     ...[0.6, 0.7, 0.8, 0.9, 1.0].map((seconds) => ({
       sizeInBytes: 0,
       messagesByTopic: { "/preloaded_topic": [getPreloadedMessage(seconds)] },
+      needTopics: new Map(),
     })),
     emptyBlock, // 1.1
     emptyBlock, // 1.2
@@ -238,6 +241,7 @@ const messageCache: BlockCache = {
     ...[1.5, 1.6, 1.7, 1.8, 1.9].map((seconds) => ({
       sizeInBytes: 0,
       messagesByTopic: { "/preloaded_topic": [getPreloadedMessage(seconds)] },
+      needTopics: new Map(),
     })),
   ],
   startTime: fromSec(0.6),
@@ -302,7 +306,7 @@ export const fixture: Fixture = {
     // Shuffle the location messages so that they are out of stamp order
     // This is used in the headerStamp series test to check that the dataset is sorted
     // prior to rendering. If the dataset is not sorted properly, the plot is jumbled.
-    "/some_topic/location_shuffled": shuffle(
+    "/some_topic/location_shuffled": _.shuffle(
       locationMessages.map(
         (message): MessageEvent => ({
           topic: "/some_topic/location_shuffled",
@@ -346,6 +350,23 @@ const exampleConfig: PlotConfig = {
   sidebarDimension: 0,
 };
 
+function useDelayedFixture(customFixture?: Fixture) {
+  // HACK: when the fixture was provided immediately on first render, we encountered an ordering
+  // issue where useProvider/useDatasets would process block messages before the chart was
+  // registered, thus `evictCache()` would clear out all the data (since no topics were registered
+  // yet).
+  const finalFixture = customFixture ?? fixture;
+  const { value: delayedFixture } = useAsync(async () => {
+    // another tick is needed to allow the useDatasets worker to process metadata & registrations
+    // before messages are delivered
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return finalFixture;
+  }, [finalFixture]);
+
+  // Topics and datatypes need to be present before messages are received for plots to render
+  return delayedFixture ?? { topics: finalFixture.topics, datatypes: finalFixture.datatypes };
+}
+
 function PlotWrapper(props: {
   style?: { [key: string]: string | number };
   includeSettings?: boolean;
@@ -353,9 +374,10 @@ function PlotWrapper(props: {
   pauseFrame: (_arg: string) => () => void;
   config: PlotConfig;
 }): JSX.Element {
+  const delayedFixture = useDelayedFixture(props.fixture);
   return (
     <PanelSetup
-      fixture={props.fixture ?? fixture}
+      fixture={delayedFixture}
       pauseFrame={props.pauseFrame}
       includeSettings={props.includeSettings}
       style={{ ...props.style }}
@@ -372,6 +394,13 @@ export default {
     chromatic: { delay: 50 },
   },
   excludeStories: ["paths", "fixture"],
+};
+
+export const Empty: StoryObj = {
+  render: function Story() {
+    return <PlotWrapper includeSettings pauseFrame={() => () => {}} config={Plot.defaultConfig} />;
+  },
+  parameters: { colorScheme: "light" },
 };
 
 export const LineGraph: StoryObj = {
@@ -490,7 +519,13 @@ export const LineGraphWithSettings: StoryObj = {
     return (
       <PlotWrapper
         pauseFrame={pauseFrame}
-        config={{ ...exampleConfig, minYValue: -1, maxYValue: 1, minXValue: 0, maxXValue: 3 }}
+        config={{
+          ...exampleConfig,
+          minYValue: -3.1415,
+          maxYValue: 0.00001,
+          minXValue: 0.001234,
+          maxXValue: 30,
+        }}
         includeSettings
       />
     );
@@ -504,8 +539,12 @@ export const LineGraphWithSettings: StoryObj = {
   name: "line graph with settings",
 
   play: async (ctx) => {
-    const label = await screen.findByTestId("settings__nodeHeaderToggle__yAxis");
-    await userEvent.click(label);
+    const yLabel = await screen.findByTestId("settings__nodeHeaderToggle__yAxis");
+    await userEvent.click(yLabel);
+
+    const xLabel = await screen.findByTestId("settings__nodeHeaderToggle__xAxis");
+    await userEvent.click(xLabel);
+
     await ctx.parameters.storyReady;
   },
 };
@@ -555,12 +594,13 @@ const useStyles = makeStyles()(() => ({
 
 export const InALineGraphWithMultiplePlotsXAxesAreSynced: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 6 });
+    const readySignal = useReadySignal({ count: 10 });
     const pauseFrame = useCallback(() => readySignal, [readySignal]);
     const { classes } = useStyles();
 
+    const delayedFixture = useDelayedFixture();
     return (
-      <PanelSetup fixture={fixture} pauseFrame={pauseFrame} className={classes.PanelSetup}>
+      <PanelSetup fixture={delayedFixture} pauseFrame={pauseFrame} className={classes.PanelSetup}>
         <Plot
           overrideConfig={{
             ...exampleConfig,
@@ -855,16 +895,14 @@ export const WithMinAndMaxYValues: StoryObj = {
   },
 
   parameters: {
-    chromatic: {
-      delay: 500,
-    },
     colorScheme: "light",
     useReadySignal: true,
   },
 
   name: "with min and max Y values",
 
-  play: async () => {
+  play: async (ctx) => {
+    await ctx.parameters.storyReady;
     const label = await screen.findByText("Y Axis");
     await userEvent.click(label);
   },
@@ -872,7 +910,7 @@ export const WithMinAndMaxYValues: StoryObj = {
 
 export const WithJustMinYValueLessThanMinimumValue: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 3 });
+    const readySignal = useReadySignal({ count: 5 });
     const pauseFrame = useCallback(() => readySignal, [readySignal]);
 
     return (
@@ -906,7 +944,7 @@ export const WithJustMinYValueLessThanMinimumValue: StoryObj = {
 
 export const WithJustMinYValueMoreThanMinimumValue: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 3 });
+    const readySignal = useReadySignal({ count: 5 });
     const pauseFrame = useCallback(() => readySignal, [readySignal]);
 
     return (
@@ -940,7 +978,7 @@ export const WithJustMinYValueMoreThanMinimumValue: StoryObj = {
 
 export const WithJustMinYValueMoreThanMaximumValue: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 3 });
+    const readySignal = useReadySignal({ count: 5 });
     const pauseFrame = useCallback(() => readySignal, [readySignal]);
 
     return (
@@ -974,7 +1012,7 @@ export const WithJustMinYValueMoreThanMaximumValue: StoryObj = {
 
 export const WithJustMaxYValueLessThanMaximumValue: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 3 });
+    const readySignal = useReadySignal({ count: 5 });
     const pauseFrame = useCallback(() => readySignal, [readySignal]);
 
     return (
@@ -1115,7 +1153,7 @@ export const ScatterPlotPlusLineGraphPlusReferenceLine: StoryObj = {
 
 export const IndexBasedXAxisForArray: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 3 });
+    const readySignal = useReadySignal({ count: 1 });
     const pauseFrame = useCallback(() => readySignal, [readySignal]);
 
     return (
@@ -1150,8 +1188,13 @@ export const IndexBasedXAxisForArray: StoryObj = {
 
 export const IndexBasedXAxisForArrayWithUpdate: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 3 });
-    const pauseFrame = useCallback(() => {
+    const readySignal = useReadySignal({ count: 1 });
+
+    const [ourFixture, setOurFixture] = useState(structuredClone(fixture));
+
+    const pauseFrame = useCallback(() => readySignal, [readySignal]);
+
+    useEffect(() => {
       setOurFixture((oldValue) => {
         return {
           ...oldValue,
@@ -1163,8 +1206,8 @@ export const IndexBasedXAxisForArrayWithUpdate: StoryObj = {
                 message: {
                   header: { stamp: { sec: 3, nsec: 0 } },
                   items: [
-                    { id: 10, speed: 4 },
-                    { id: 42, speed: 2 },
+                    { id: 10, speed: 1 },
+                    { id: 42, speed: 10 },
                   ],
                 },
                 schemaName: "msgs/State",
@@ -1174,10 +1217,7 @@ export const IndexBasedXAxisForArrayWithUpdate: StoryObj = {
           },
         };
       });
-
-      return readySignal;
-    }, [readySignal]);
-    const [ourFixture, setOurFixture] = useState(structuredClone(fixture));
+    }, []);
 
     return (
       <PlotWrapper
@@ -1205,7 +1245,7 @@ export const IndexBasedXAxisForArrayWithUpdate: StoryObj = {
   },
 
   play: async (ctx) => {
-    await ctx.parameters.storyReady;
+    await waitFor(() => ctx.parameters.storyReady);
   },
 };
 
@@ -1366,7 +1406,7 @@ export const CustomXAxisTopicWithMismatchedDataLengths: StoryObj = {
 
 export const SuperCloseValues: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 3 });
+    const readySignal = useReadySignal({ count: 1 });
     const pauseFrame = useCallback(() => readySignal, [readySignal]);
 
     return (

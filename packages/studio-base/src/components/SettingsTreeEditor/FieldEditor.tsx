@@ -30,102 +30,76 @@ const UNDEFINED_SENTINEL_VALUE = uuid();
 /** Used to avoid MUI errors when an invalid option is selected */
 const INVALID_SENTINEL_VALUE = uuid();
 
-const useStyles = makeStyles<void, "error">()((theme, _params, classes) => {
-  const prefersDarkMode = theme.palette.mode === "dark";
-  const inputBackgroundColor = prefersDarkMode
-    ? "rgba(255, 255, 255, 0.09)"
-    : "rgba(0, 0, 0, 0.06)";
+const useStyles = makeStyles<void, "error">()((theme, _params, classes) => ({
+  autocomplete: {
+    ".MuiInputBase-root.MuiInputBase-sizeSmall": {
+      paddingInline: 0,
+      paddingBlock: theme.spacing(0.3125),
+    },
+  },
+  clearIndicator: {
+    marginRight: theme.spacing(-0.25),
+    opacity: theme.palette.action.disabledOpacity,
 
-  return {
-    autocomplete: {
-      ".MuiInputBase-root.MuiInputBase-sizeSmall": {
-        paddingInline: 0,
-        paddingBlock: theme.spacing(0.3125),
-      },
+    ":hover": {
+      background: "transparent",
+      opacity: 1,
     },
-    clearIndicator: {
-      marginRight: theme.spacing(-0.25),
-      opacity: theme.palette.action.disabledOpacity,
+  },
+  error: {},
+  fieldLabel: {
+    color: theme.palette.text.secondary,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  fieldWrapper: {
+    minWidth: theme.spacing(14),
+    marginRight: theme.spacing(0.5),
+    [`&.${classes.error} .MuiInputBase-root, .MuiInputBase-root.${classes.error}`]: {
+      outline: `1px ${theme.palette.error.main} solid`,
+      outlineOffset: -1,
+    },
+  },
+  multiLabelWrapper: {
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    columnGap: theme.spacing(0.5),
+    height: "100%",
+    width: "100%",
+    alignItems: "center",
+    textAlign: "end",
+  },
+  styledToggleButtonGroup: {
+    backgroundColor: theme.palette.action.hover,
+    gap: theme.spacing(0.25),
+    overflowX: "auto",
 
-      ":hover": {
-        background: "transparent",
-        opacity: 1,
-      },
-    },
-    error: {},
-    fieldLabel: {
-      color: theme.palette.text.secondary,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap",
-    },
-    fieldWrapper: {
-      minWidth: theme.spacing(14),
-      marginRight: theme.spacing(0.5),
-      [`&.${classes.error} .MuiInputBase-root, .MuiInputBase-root.${classes.error}`]: {
-        outline: `1px ${theme.palette.error.main} solid`,
-        outlineOffset: -1,
-      },
-    },
-    multiLabelWrapper: {
-      display: "grid",
-      gridTemplateColumns: "1fr auto",
-      columnGap: theme.spacing(0.5),
-      height: "100%",
-      width: "100%",
-      alignItems: "center",
-      textAlign: "end",
-    },
-    pseudoInputWrapper: {
+    "& .MuiToggleButtonGroup-grouped": {
+      margin: theme.spacing(0.55),
       borderRadius: theme.shape.borderRadius,
-      fontSize: "0.75em",
-      backgroundColor: inputBackgroundColor,
+      paddingTop: 0,
+      paddingBottom: 0,
+      borderColor: "transparent !important",
+      lineHeight: 1.75,
 
-      input: {
-        height: "1.77em",
-      },
-      "&:hover": {
-        backgroundColor: prefersDarkMode ? "rgba(255, 255, 255, 0.13)" : "rgba(0, 0, 0, 0.09)",
-        // Reset on touch devices, it doesn't add specificity
-        "@media (hover: none)": {
-          backgroundColor: inputBackgroundColor,
+      "&.Mui-selected": {
+        background: theme.palette.background.paper,
+        borderColor: "transparent",
+
+        "&:hover": {
+          borderColor: theme.palette.action.active,
         },
       },
-      "&:focus-within": {
-        backgroundColor: inputBackgroundColor,
-      },
-    },
-    styledToggleButtonGroup: {
-      backgroundColor: theme.palette.action.hover,
-      gap: theme.spacing(0.25),
-      overflowX: "auto",
-
-      "& .MuiToggleButtonGroup-grouped": {
-        margin: theme.spacing(0.55),
+      "&:not(:first-of-type)": {
         borderRadius: theme.shape.borderRadius,
-        paddingTop: 0,
-        paddingBottom: 0,
-        borderColor: "transparent !important",
-        lineHeight: 1.75,
-
-        "&.Mui-selected": {
-          background: theme.palette.background.paper,
-          borderColor: "transparent",
-
-          "&:hover": {
-            borderColor: theme.palette.action.active,
-          },
-        },
-        "&:not(:first-of-type)": {
-          borderRadius: theme.shape.borderRadius,
-        },
-        "&:first-of-type": {
-          borderRadius: theme.shape.borderRadius,
-        },
+      },
+      "&:first-of-type": {
+        borderRadius: theme.shape.borderRadius,
       },
     },
-  };
-});
+  },
+}));
 
 function FieldInput({
   actionHandler,
@@ -165,15 +139,17 @@ function FieldInput({
           renderInput={(params) => (
             <TextField {...params} variant="filled" size="small" placeholder={field.placeholder} />
           )}
-          onInputChange={(_event, value) =>
-            actionHandler({ action: "update", payload: { path, input: "autocomplete", value } })
-          }
-          onChange={(_event, value) =>
+          onInputChange={(_event, value, reason) => {
+            if (reason === "input") {
+              actionHandler({ action: "update", payload: { path, input: "autocomplete", value } });
+            }
+          }}
+          onChange={(_event, value) => {
             actionHandler({
               action: "update",
               payload: { path, input: "autocomplete", value: value ?? undefined },
-            })
-          }
+            });
+          }}
           options={field.items}
         />
       );
@@ -191,9 +167,9 @@ function FieldInput({
           min={field.min}
           precision={field.precision}
           step={field.step}
-          onChange={(value) =>
-            actionHandler({ action: "update", payload: { path, input: "number", value } })
-          }
+          onChange={(value) => {
+            actionHandler({ action: "update", payload: { path, input: "number", value } });
+          }}
         />
       );
     case "toggle":
@@ -240,12 +216,12 @@ function FieldInput({
           InputProps={{
             readOnly: field.readonly,
           }}
-          onChange={(event) =>
+          onChange={(event) => {
             actionHandler({
               action: "update",
               payload: { path, input: "string", value: event.target.value },
-            })
-          }
+            });
+          }}
         />
       );
     case "boolean":
@@ -278,12 +254,12 @@ function FieldInput({
           readOnly={field.readonly}
           placeholder={field.placeholder}
           value={field.value?.toString()}
-          onChange={(value) =>
+          onChange={(value) => {
             actionHandler({
               action: "update",
               payload: { path, input: "rgb", value },
-            })
-          }
+            });
+          }}
           hideClearButton={field.hideClearButton}
         />
       );
@@ -295,31 +271,30 @@ function FieldInput({
           readOnly={field.readonly}
           placeholder={field.placeholder}
           value={field.value?.toString()}
-          onChange={(value) =>
+          onChange={(value) => {
             actionHandler({
               action: "update",
               payload: { path, input: "rgba", value },
-            })
-          }
+            });
+          }}
         />
       );
     case "messagepath":
       return (
-        <Stack className={classes.pseudoInputWrapper} direction="row">
-          <MessagePathInput
-            path={field.value ?? ""}
-            disabled={field.disabled}
-            readOnly={field.readonly}
-            supportsMathModifiers={field.supportsMathModifiers}
-            onChange={(value) =>
-              actionHandler({
-                action: "update",
-                payload: { path, input: "messagepath", value },
-              })
-            }
-            validTypes={field.validTypes}
-          />
-        </Stack>
+        <MessagePathInput
+          variant="filled"
+          path={field.value ?? ""}
+          disabled={field.disabled}
+          readOnly={field.readonly}
+          supportsMathModifiers={field.supportsMathModifiers}
+          onChange={(value) => {
+            actionHandler({
+              action: "update",
+              payload: { path, input: "messagepath", value },
+            });
+          }}
+          validTypes={field.validTypes}
+        />
       );
     case "select": {
       const selectedOptionIndex = // use findIndex instead of find to avoid confusing TypeScript with union of arrays
@@ -358,7 +333,7 @@ function FieldInput({
             }
             return value;
           }}
-          onChange={(event) =>
+          onChange={(event) => {
             actionHandler({
               action: "update",
               payload: {
@@ -369,12 +344,12 @@ function FieldInput({
                     ? undefined
                     : (event.target.value as undefined | string | string[]),
               },
-            })
-          }
+            });
+          }}
           MenuProps={{ MenuListProps: { dense: true } }}
         >
-          {field.options.map(({ label, value = UNDEFINED_SENTINEL_VALUE }) => (
-            <MenuItem key={value} value={value}>
+          {field.options.map(({ label, value = UNDEFINED_SENTINEL_VALUE, disabled }) => (
+            <MenuItem key={value} value={value} disabled={disabled}>
               {label}
             </MenuItem>
           ))}
@@ -391,9 +366,9 @@ function FieldInput({
           colors={field.value}
           disabled={field.disabled}
           readOnly={field.readonly}
-          onChange={(value) =>
-            actionHandler({ action: "update", payload: { path, input: "gradient", value } })
-          }
+          onChange={(value) => {
+            actionHandler({ action: "update", payload: { path, input: "gradient", value } });
+          }}
         />
       );
     case "vec3":
@@ -407,9 +382,9 @@ function FieldInput({
           readOnly={field.readonly}
           min={field.min}
           max={field.max}
-          onChange={(value) =>
-            actionHandler({ action: "update", payload: { path, input: "vec3", value } })
-          }
+          onChange={(value) => {
+            actionHandler({ action: "update", payload: { path, input: "vec3", value } });
+          }}
         />
       );
     case "vec2":
@@ -423,9 +398,9 @@ function FieldInput({
           readOnly={field.readonly}
           min={field.min}
           max={field.max}
-          onChange={(value) =>
-            actionHandler({ action: "update", payload: { path, input: "vec2", value } })
-          }
+          onChange={(value) => {
+            actionHandler({ action: "update", payload: { path, input: "vec2", value } });
+          }}
         />
       );
   }

@@ -4,25 +4,12 @@
 
 import * as THREE from "three";
 
-interface TypedArray {
-  readonly length: number;
-  readonly [n: number]: number;
-  BYTES_PER_ELEMENT: number;
-  set(n: ArrayLike<number>, offset: number): void;
-}
-
-interface TypedArrayConstructor<T extends TypedArray> {
-  new (length: number): T;
-}
-
-interface ArrayConstructor {
-  new (length: number): ArrayLike<number>;
-}
+type TypedArrayConstructor<T extends THREE.TypedArray> = new (length: number) => T;
 
 export class DynamicBufferGeometry extends THREE.BufferGeometry {
   public override attributes: { [name: string]: THREE.BufferAttribute } = {};
 
-  #attributeConstructors = new Map<string, ArrayConstructor>();
+  #attributeConstructors = new Map<string, TypedArrayConstructor<THREE.TypedArray>>();
   #usage: THREE.Usage;
   #itemCapacity = 0;
 
@@ -38,8 +25,8 @@ export class DynamicBufferGeometry extends THREE.BufferGeometry {
     }
   }
 
-  public createAttribute<T extends TypedArray, C extends TypedArrayConstructor<T>>(
-    name: THREE.BuiltinShaderAttributeName | string,
+  public createAttribute<T extends THREE.TypedArray, C extends TypedArrayConstructor<T>>(
+    name: string,
     arrayConstructor: C,
     itemSize: number,
     // eslint-disable-next-line @foxglove/no-boolean-parameters
@@ -56,9 +43,6 @@ export class DynamicBufferGeometry extends THREE.BufferGeometry {
     this.setDrawRange(0, itemCount);
 
     if (itemCount <= this.#itemCapacity) {
-      for (const attribute of Object.values(this.attributes)) {
-        attribute.count = itemCount;
-      }
       return;
     }
 

@@ -44,22 +44,24 @@ export default function View(props: PropsWithChildren<ViewProps>): JSX.Element {
       >
         <Button
           startIcon={<ChevronLeftIcon fontSize="large" />}
-          onClick={() => dialogActions.dataSource.open("start")}
-          size="large"
+          onClick={() => {
+            dialogActions.dataSource.open("start");
+          }}
         >
           Back
         </Button>
 
         <Stack direction="row" gap={2}>
           <Button
-            size="large"
             color="inherit"
             variant="outlined"
-            onClick={() => dialogActions.dataSource.close()}
+            onClick={() => {
+              dialogActions.dataSource.close();
+            }}
           >
             Cancel
           </Button>
-          <Button size="large" variant="contained" onClick={onOpen} disabled={onOpen == undefined}>
+          <Button variant="contained" onClick={onOpen} disabled={onOpen == undefined}>
             Open
           </Button>
         </Stack>

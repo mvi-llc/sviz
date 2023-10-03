@@ -3,34 +3,36 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import {
-  ChevronDown20Regular,
-  ChevronUp20Regular,
-  ChevronLeft20Regular,
-  ChevronRight20Regular,
+  ChevronDown16Regular,
+  ChevronUp16Regular,
+  ChevronLeft16Regular,
+  ChevronRight16Regular,
   TextBulletListLtr20Filled,
-  ArrowMinimize24Filled,
+  ArrowMinimize20Filled,
 } from "@fluentui/react-icons";
 import { IconButton } from "@mui/material";
-import { clamp } from "lodash";
-import { ComponentProps, useCallback, useMemo, useRef } from "react";
+import * as _ from "lodash-es";
+import { useCallback, useMemo, useRef } from "react";
 import tinycolor from "tinycolor2";
 import { makeStyles } from "tss-react/mui";
 
 import { Immutable } from "@foxglove/studio";
 import { PANEL_TOOLBAR_MIN_HEIGHT } from "@foxglove/studio-base/components/PanelToolbar";
 import Stack from "@foxglove/studio-base/components/Stack";
-import TimeBasedChart from "@foxglove/studio-base/components/TimeBasedChart";
 import { PlotLegendRow } from "@foxglove/studio-base/panels/Plot/PlotLegendRow";
 import { PlotPath } from "@foxglove/studio-base/panels/Plot/internalTypes";
 import { PlotConfig } from "@foxglove/studio-base/panels/Plot/types";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
+
+import { TypedDataSet } from "./internalTypes";
+import { DEFAULT_PATH } from "./settings";
 
 const minLegendWidth = 25;
 const maxLegendWidth = 800;
 
 type Props = Immutable<{
   currentTime?: number;
-  datasets: ComponentProps<typeof TimeBasedChart>["data"]["datasets"];
+  datasets: TypedDataSet[];
   legendDisplay: "floating" | "top" | "left";
   onClickPath: (index: number) => void;
   paths: PlotPath[];
@@ -59,6 +61,7 @@ const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonF
       alignItems: "flex-start",
       height: `calc(100% - ${PANEL_TOOLBAR_MIN_HEIGHT}px - ${spacing(5.25)})`,
       overflow: "hidden",
+      minWidth: 200,
 
       [`.${classes.container}`]: {
         pointerEvents: "auto",
@@ -106,7 +109,8 @@ const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonF
       alignItems: "center",
       overflow: "auto",
       display: "grid",
-      gridTemplateColumns: "auto minmax(0, 1fr) auto",
+      gridTemplateColumns: "auto minmax(0, 1fr) auto auto",
+      columnGap: 1,
     },
     dragHandle: {
       userSelect: "none",
@@ -143,7 +147,7 @@ const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonF
   }),
 );
 
-export function PlotLegend(props: Props): JSX.Element {
+function PlotLegendComponent(props: Props): JSX.Element {
   const {
     currentTime,
     datasets,
@@ -160,19 +164,18 @@ export function PlotLegend(props: Props): JSX.Element {
 
   const dragStart = useRef({ x: 0, y: 0, sidebarDimension: 0 });
 
-  const toggleLegend = useCallback(
-    () => saveConfig({ showLegend: !showLegend }),
-    [showLegend, saveConfig],
-  );
+  const toggleLegend = useCallback(() => {
+    saveConfig({ showLegend: !showLegend });
+  }, [showLegend, saveConfig]);
 
   const legendIcon = useMemo(() => {
     switch (legendDisplay) {
       case "floating":
-        return showLegend ? <ArrowMinimize24Filled /> : <TextBulletListLtr20Filled />;
+        return showLegend ? <ArrowMinimize20Filled /> : <TextBulletListLtr20Filled />;
       case "left":
-        return showLegend ? <ChevronLeft20Regular /> : <ChevronRight20Regular />;
+        return showLegend ? <ChevronLeft16Regular /> : <ChevronRight16Regular />;
       case "top":
-        return showLegend ? <ChevronUp20Regular /> : <ChevronDown20Regular />;
+        return showLegend ? <ChevronUp16Regular /> : <ChevronDown16Regular />;
     }
   }, [showLegend, legendDisplay]);
 
@@ -185,7 +188,7 @@ export function PlotLegend(props: Props): JSX.Element {
         legendDisplay === "left"
           ? event.clientX - dragStart.current.x
           : event.clientY - dragStart.current.y;
-      const newDimension = clamp(
+      const newDimension = _.clamp(
         dragStart.current.sidebarDimension + delta,
         minLegendWidth,
         maxLegendWidth,
@@ -223,6 +226,7 @@ export function PlotLegend(props: Props): JSX.Element {
       })}
     >
       <IconButton
+        size="small"
         onClick={toggleLegend}
         className={cx(classes.toggleButton, {
           [classes.toggleButtonFloating]: legendDisplay === "floating",
@@ -248,14 +252,16 @@ export function PlotLegend(props: Props): JSX.Element {
             overflow={legendDisplay === "floating" ? "auto" : undefined}
           >
             <div className={classes.container}>
-              {paths.map((path, index) => (
+              {(paths.length === 0 ? [DEFAULT_PATH] : paths).map((path, index) => (
                 <PlotLegendRow
                   currentTime={currentTime}
                   datasets={datasets}
                   hasMismatchedDataLength={pathsWithMismatchedDataLengths.includes(path.value)}
                   index={index}
                   key={index}
-                  onClickPath={() => onClickPath(index)}
+                  onClickPath={() => {
+                    onClickPath(index);
+                  }}
                   path={path}
                   paths={paths}
                   savePaths={savePaths}
@@ -294,3 +300,5 @@ export function PlotLegend(props: Props): JSX.Element {
     </div>
   );
 }
+
+export const PlotLegend = React.memo(PlotLegendComponent);

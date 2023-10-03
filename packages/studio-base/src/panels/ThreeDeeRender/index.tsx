@@ -17,6 +17,7 @@ import {
   BuiltinPanelExtensionContext,
   PanelExtensionAdapter,
 } from "@foxglove/studio-base/components/PanelExtensionAdapter";
+import { TestOptions } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 
 import { ThreeDeeRender } from "./ThreeDeeRender";
@@ -26,12 +27,12 @@ type InitPanelArgs = {
   crash: ReturnType<typeof useCrash>;
   forwardedAnalytics: ForwardedAnalytics;
   interfaceMode: InterfaceMode;
-  onDownloadImage: ((blob: Blob, fileName: string) => void) | undefined;
-  debugPicking?: boolean;
+  testOptions: TestOptions;
 };
 
 function initPanel(args: InitPanelArgs, context: BuiltinPanelExtensionContext) {
-  const { crash, forwardedAnalytics, interfaceMode, onDownloadImage, debugPicking } = args;
+  const { crash, forwardedAnalytics, interfaceMode, testOptions } = args;
+  // eslint-disable-next-line react/no-deprecated
   ReactDOM.render(
     <StrictMode>
       <CaptureErrorBoundary onError={crash}>
@@ -39,8 +40,7 @@ function initPanel(args: InitPanelArgs, context: BuiltinPanelExtensionContext) {
           <ThreeDeeRender
             context={context}
             interfaceMode={interfaceMode}
-            onDownloadImage={onDownloadImage}
-            debugPicking={debugPicking}
+            testOptions={testOptions}
           />
         </ForwardAnalyticsContextProvider>
       </CaptureErrorBoundary>
@@ -48,6 +48,7 @@ function initPanel(args: InitPanelArgs, context: BuiltinPanelExtensionContext) {
     context.panelElement,
   );
   return () => {
+    // eslint-disable-next-line react/no-deprecated
     ReactDOM.unmountComponentAtNode(context.panelElement);
   };
 }
@@ -69,8 +70,7 @@ function ThreeDeeRenderAdapter(interfaceMode: InterfaceMode, props: Props) {
         crash,
         forwardedAnalytics,
         interfaceMode,
-        onDownloadImage: props.onDownloadImage,
-        debugPicking: props.debugPicking,
+        testOptions: { onDownloadImage: props.onDownloadImage, debugPicking: props.debugPicking },
       }),
     [crash, forwardedAnalytics, interfaceMode, props.onDownloadImage, props.debugPicking],
   );

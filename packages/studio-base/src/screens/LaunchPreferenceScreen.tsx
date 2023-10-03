@@ -39,7 +39,7 @@ export function LaunchPreferenceScreen(): ReactElement {
   const [globalPreference, setGlobalPreference] = useAppConfigurationValue<string | undefined>(
     AppSetting.LAUNCH_PREFERENCE,
   );
-  const [_, setSessionPreference] = useSessionStorageValue(AppSetting.LAUNCH_PREFERENCE);
+  const [, setSessionPreference] = useSessionStorageValue(AppSetting.LAUNCH_PREFERENCE);
   const [rememberPreference, setRememberPreference] = useState(globalPreference != undefined);
 
   async function launchInWeb() {
@@ -87,7 +87,6 @@ export function LaunchPreferenceScreen(): ReactElement {
                 fullWidth
                 color="inherit"
                 variant="outlined"
-                size="large"
                 onClick={action.onClick}
               >
                 <Stack flex="auto" zeroMinWidth>

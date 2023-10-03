@@ -17,7 +17,7 @@ import {
 import type { RosObject, RosValue } from "@foxglove/studio-base/players/types";
 import { emptyPose } from "@foxglove/studio-base/util/Pose";
 
-import { colorHasTransparency, getColorConverter } from "./pointClouds/colors";
+import { colorHasTransparency, getColorConverter } from "./colorMode";
 import { DynamicBufferGeometry } from "../DynamicBufferGeometry";
 import { AnyRendererSubscription, IRenderer } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
@@ -315,8 +315,9 @@ class LaserScanHistoryRenderable extends Renderable<LaserScanHistoryUserData> {
 }
 
 export class LaserScans extends SceneExtension<LaserScanHistoryRenderable> {
-  public constructor(renderer: IRenderer) {
-    super("foxglove.LaserScans", renderer);
+  public static extensionId = "foxglove.LaserScans";
+  public constructor(renderer: IRenderer, name: string = LaserScans.extensionId) {
+    super(name, renderer);
   }
 
   public override getSubscriptions(): readonly AnyRendererSubscription[] {
@@ -467,8 +468,8 @@ export class LaserScanMaterial extends THREE.RawShaderMaterial {
 
   public constructor({ picking = false }: { picking?: boolean } = {}) {
     super({
-      vertexShader: /*glsl*/ `\
-        #version 300 es
+      glslVersion: THREE.GLSL3,
+      vertexShader: /*glsl*/ `
         precision highp float;
         precision highp int;
         uniform mat4 projectionMatrix, modelViewMatrix;
@@ -499,8 +500,7 @@ export class LaserScanMaterial extends THREE.RawShaderMaterial {
 
         }
       `,
-      fragmentShader: `\
-        #version 300 es
+      fragmentShader: `
         #ifdef GL_FRAGMENT_PRECISION_HIGH
           precision highp float;
         #else
@@ -510,7 +510,7 @@ export class LaserScanMaterial extends THREE.RawShaderMaterial {
         ${picking ? "uniform vec4 objectId;" : "in mediump vec4 vColor;"}
         out vec4 outColor;
 
-        ${THREE.ShaderChunk.encodings_pars_fragment /* for LinearTosRGB() */}
+        ${THREE.ShaderChunk.colorspace_pars_fragment /* for LinearTosRGB() */}
 
         void main() {
           if (isCircle) {
@@ -564,8 +564,8 @@ class LaserScanInstancePickingMaterial extends THREE.RawShaderMaterial {
   public constructor() {
     const minPointSize = LaserScanInstancePickingMaterial.#MIN_PICKING_POINT_SIZE.toFixed(1);
     super({
-      vertexShader: /* glsl */ `\
-        #version 300 es
+      glslVersion: THREE.GLSL3,
+      vertexShader: /* glsl */ `
         precision highp float;
         precision highp int;
         uniform mat4 projectionMatrix, modelViewMatrix;
@@ -592,8 +592,7 @@ class LaserScanInstancePickingMaterial extends THREE.RawShaderMaterial {
           gl_PointSize = pixelRatio * max(pointSize, ${minPointSize});
         }
       `,
-      fragmentShader: /* glsl */ `\
-        #version 300 es
+      fragmentShader: /* glsl */ `
         #ifdef GL_FRAGMENT_PRECISION_HIGH
           precision highp float;
         #else

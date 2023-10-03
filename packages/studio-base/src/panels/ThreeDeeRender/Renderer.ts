@@ -13,8 +13,10 @@ import Logger from "@foxglove/log";
 import { Time, fromNanoSec, isLessThan, toNanoSec } from "@foxglove/rostime";
 import type { FrameTransform, FrameTransforms, SceneUpdate } from "@foxglove/schemas";
 import {
+  DraggedMessagePath,
   Immutable,
   MessageEvent,
+  MessagePathDropStatus,
   ParameterValue,
   SettingsIcon,
   SettingsTreeAction,
@@ -23,15 +25,16 @@ import {
   Topic,
   VariableValue,
 } from "@foxglove/studio";
+import { PanelContextMenuItem } from "@foxglove/studio-base/components/PanelContextMenu";
 import {
   Asset,
   BuiltinPanelExtensionContext,
 } from "@foxglove/studio-base/components/PanelExtensionAdapter";
 import { LayerErrors } from "@foxglove/studio-base/panels/ThreeDeeRender/LayerErrors";
-import { FoxgloveGrid } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/FoxgloveGrid";
+import { SceneExtensionConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/SceneExtensionConfig";
 import { ICameraHandler } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/ICameraHandler";
-import { dark, light } from "@foxglove/studio-base/theme/palette";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
+import IAnalytics from "@foxglove/studio-base/services/IAnalytics";
+import { palette, fontMonospace } from "@foxglove/theme";
 import { LabelMaterial, LabelPool } from "@foxglove/three-text";
 
 import {
@@ -40,6 +43,7 @@ import {
   RendererConfig,
   RendererEvents,
   RendererSubscription,
+  TestOptions,
 } from "./IRenderer";
 import { Input } from "./Input";
 import { DEFAULT_MESH_UP_AXIS, ModelCache } from "./ModelCache";
@@ -60,26 +64,9 @@ import {
   normalizeTransformStamped,
 } from "./normalizeMessages";
 import { CameraStateSettings } from "./renderables/CameraStateSettings";
-import { Cameras } from "./renderables/Cameras";
-import { FrameAxes } from "./renderables/FrameAxes";
-import { Grids } from "./renderables/Grids";
 import { ImageMode } from "./renderables/ImageMode/ImageMode";
-import { Images } from "./renderables/Images";
-import { DownloadImageInfo } from "./renderables/Images/ImageTypes";
-import { LaserScans } from "./renderables/LaserScans";
-import { Markers } from "./renderables/Markers";
 import { MeasurementTool } from "./renderables/MeasurementTool";
-import { OccupancyGrids } from "./renderables/OccupancyGrids";
-import { PointClouds } from "./renderables/PointClouds";
-import { Polygons } from "./renderables/Polygons";
-import { PoseArrays } from "./renderables/PoseArrays";
-import { Poses } from "./renderables/Poses";
 import { PublishClickTool } from "./renderables/PublishClickTool";
-import { PublishSettings } from "./renderables/PublishSettings";
-import { FoxgloveSceneEntities } from "./renderables/SceneEntities";
-import { SceneSettings } from "./renderables/SceneSettings";
-import { Urdfs } from "./renderables/Urdfs";
-import { VelodyneScans } from "./renderables/VelodyneScans";
 import { MarkerPool } from "./renderables/markers/MarkerPool";
 import {
   Header,
@@ -108,8 +95,8 @@ const MAX_SELECTIONS = 10;
 
 // NOTE: These do not use .convertSRGBToLinear() since background color is not
 // affected by gamma correction
-const LIGHT_BACKDROP = new THREE.Color(light.background?.default);
-const DARK_BACKDROP = new THREE.Color(dark.background?.default);
+const LIGHT_BACKDROP = new THREE.Color(palette.light.background?.default);
+const DARK_BACKDROP = new THREE.Color(palette.dark.background?.default);
 
 // Define rendering layers for multipass rendering used for the selection effect
 const LAYER_DEFAULT = 0;
@@ -156,6 +143,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   #canvas: HTMLCanvasElement;
   public readonly gl: THREE.WebGLRenderer;
   public maxLod = DetailLevel.High;
+
   public debugPicking: boolean;
   public config: Immutable<RendererConfig>;
   public settings: SettingsManager;
@@ -206,25 +194,34 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   public fixedFrameId: string | undefined;
   public followFrameId: string | undefined;
 
-  public labelPool = new LabelPool({ fontFamily: fonts.MONOSPACE });
+  public labelPool = new LabelPool({ fontFamily: fontMonospace });
   public markerPool = new MarkerPool(this);
   public sharedGeometry = new SharedGeometry();
 
   #prevResolution = new THREE.Vector2();
   #pickingEnabled = false;
+  #rendering = false;
   #animationFrame?: number;
   #cameraSyncError: undefined | string;
   #devicePixelRatioMediaQuery?: MediaQueryList;
   #fetchAsset: BuiltinPanelExtensionContext["unstable_fetchAsset"];
+
+  public readonly displayTemporaryError?: (str: string) => void;
+  /** Options passed for local testing and storybook. */
+  public readonly testOptions: TestOptions;
+  public analytics?: IAnalytics;
 
   public constructor(args: {
     canvas: HTMLCanvasElement;
     config: Immutable<RendererConfig>;
     interfaceMode: InterfaceMode;
     fetchAsset: BuiltinPanelExtensionContext["unstable_fetchAsset"];
-    debugPicking?: boolean;
+    displayTemporaryError?: (message: string) => void;
+    testOptions: TestOptions;
+    sceneExtensionConfig: SceneExtensionConfig;
   }) {
     super();
+    this.displayTemporaryError = args.displayTemporaryError;
     // NOTE: Global side effect
     THREE.Object3D.DEFAULT_UP = new THREE.Vector3(0, 0, 1);
 
@@ -232,7 +229,8 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
     const canvas = (this.#canvas = args.canvas);
     const config = (this.config = args.config);
     this.#fetchAsset = args.fetchAsset;
-    this.debugPicking = args.debugPicking ?? false;
+    this.testOptions = args.testOptions;
+    this.debugPicking = args.testOptions.debugPicking ?? false;
 
     this.settings = new SettingsManager(baseSettingsTree(this.interfaceMode));
     this.settings.on("update", () => this.emit("settingsTreeChange", this));
@@ -250,7 +248,6 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
     if (!this.gl.capabilities.isWebGL2) {
       throw new Error("WebGL2 is not supported");
     }
-    this.gl.outputEncoding = THREE.sRGBEncoding;
     this.gl.toneMapping = THREE.NoToneMapping;
     this.gl.autoClear = false;
     this.gl.info.autoReset = false;
@@ -276,7 +273,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
 
     this.#scene = new THREE.Scene();
 
-    this.#dirLight = new THREE.DirectionalLight();
+    this.#dirLight = new THREE.DirectionalLight(0xffffff, Math.PI);
     this.#dirLight.position.set(1, 1, 1);
     this.#dirLight.castShadow = true;
     this.#dirLight.layers.enableAll();
@@ -287,15 +284,19 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
     this.#dirLight.shadow.camera.far = 500;
     this.#dirLight.shadow.bias = -0.00001;
 
-    this.#hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.5);
+    this.#hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.5 * Math.PI);
     this.#hemiLight.layers.enableAll();
 
     this.#scene.add(this.#dirLight);
     this.#scene.add(this.#hemiLight);
 
     this.input = new Input(canvas, () => this.cameraHandler.getActiveCamera());
-    this.input.on("resize", (size) => this.#resizeHandler(size));
-    this.input.on("click", (cursorCoords) => this.#clickHandler(cursorCoords));
+    this.input.on("resize", (size) => {
+      this.#resizeHandler(size);
+    });
+    this.input.on("click", (cursorCoords) => {
+      this.#clickHandler(cursorCoords);
+    });
 
     this.#picker = new Picker(this.gl, this.#scene);
 
@@ -307,56 +308,50 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
     const renderSize = this.gl.getDrawingBufferSize(tempVec2);
     log.debug(`Initialized ${renderSize.width}x${renderSize.height} renderer (${samples}x MSAA)`);
 
-    this.measurementTool = new MeasurementTool(this);
-    this.publishClickTool = new PublishClickTool(this);
+    const { reserved } = args.sceneExtensionConfig;
+
+    this.measurementTool = reserved.measurementTool.init(this);
+    this.publishClickTool = reserved.publishClickTool.init(this);
+    this.#addSceneExtension(this.measurementTool);
+    this.#addSceneExtension(this.publishClickTool);
 
     const aspect = renderSize.width / renderSize.height;
     switch (interfaceMode) {
-      case "image":
-        this.#imageModeExtension = new ImageMode(this, {
-          canvasSize: this.input.canvasSize,
-          // eslint-disable-next-line @foxglove/no-boolean-parameters
-          setHasCalibrationTopic: (hasCameraCalibrationTopic: boolean) => {
-            if (hasCameraCalibrationTopic) {
-              this.#disableImageOnlySubscriptionMode();
-            } else {
-              this.#enableImageOnlySubscriptionMode();
-            }
-          },
-        });
+      case "image": {
+        const imageMode = reserved.imageMode.init(this);
+        this.#imageModeExtension = imageMode;
         this.cameraHandler = this.#imageModeExtension;
         this.#imageModeExtension.addEventListener("hasModifiedViewChanged", () => {
           this.emit("resetViewChanged", this);
         });
-        this.#addSceneExtension(this.cameraHandler);
+        this.#addSceneExtension(this.#imageModeExtension);
         break;
-      case "3d":
+      }
+      case "3d": {
         this.cameraHandler = new CameraStateSettings(this, this.#canvas, aspect);
         this.#addSceneExtension(this.cameraHandler);
-        this.#addSceneExtension(new PublishSettings(this));
-        this.#addSceneExtension(new Images(this));
-        this.#addSceneExtension(new Cameras(this));
         break;
+      }
     }
 
-    this.#addSceneExtension(new SceneSettings(this));
-    this.#addSceneExtension(new FrameAxes(this, { visible: interfaceMode === "3d" }));
-    this.#addSceneExtension(new Grids(this));
-    this.#addSceneExtension(new Markers(this));
-    this.#addSceneExtension(new FoxgloveSceneEntities(this));
-    this.#addSceneExtension(new FoxgloveGrid(this));
-    this.#addSceneExtension(new LaserScans(this));
-    this.#addSceneExtension(new OccupancyGrids(this));
-    this.#addSceneExtension(new PointClouds(this));
-    this.#addSceneExtension(new Polygons(this));
-    this.#addSceneExtension(new Poses(this));
-    this.#addSceneExtension(new PoseArrays(this));
-    this.#addSceneExtension(new Urdfs(this));
-    this.#addSceneExtension(new VelodyneScans(this));
-    this.#addSceneExtension(this.measurementTool);
-    this.#addSceneExtension(this.publishClickTool);
+    const { extensionsById } = args.sceneExtensionConfig;
+    for (const extensionItem of Object.values(extensionsById)) {
+      if (
+        extensionItem.supportedInterfaceModes == undefined ||
+        extensionItem.supportedInterfaceModes.includes(interfaceMode)
+      ) {
+        this.#addSceneExtension(extensionItem.init(this));
+      }
+    }
+
+    log.debug(
+      `Renderer initialized with scene extensions ${Array.from(this.sceneExtensions.keys()).join(
+        ", ",
+      )}`,
+    );
+
     if (interfaceMode === "image" && config.imageMode.calibrationTopic == undefined) {
-      this.#enableImageOnlySubscriptionMode();
+      this.enableImageOnlySubscriptionMode();
     } else {
       this.#addTransformSubscriptions();
       this.#addSubscriptionsFromSceneExtensions();
@@ -474,7 +469,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   #allFramesCursor: {
     // index represents where the last read message is in allFrames
     index: number;
-    lastReadMessage: MessageEvent<unknown> | undefined;
+    lastReadMessage: MessageEvent | undefined;
     cursorTimeReached?: Time;
   } = {
     index: -1,
@@ -668,7 +663,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
    * This mode should only be enabled in ImageMode when there is no calibration topic selected. Disabling these subscriptions
    * prevents the 3D aspects of the scene from being rendered from an insufficient camera info.
    */
-  #enableImageOnlySubscriptionMode = (): void => {
+  public enableImageOnlySubscriptionMode = (): void => {
     assert(
       this.#imageModeExtension,
       "Image mode extension should be defined when calling enable Image only mode",
@@ -681,7 +676,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
     this.settings.addNodeValidator(this.#imageOnlyModeTopicSettingsValidator);
   };
 
-  #disableImageOnlySubscriptionMode = (): void => {
+  public disableImageOnlySubscriptionMode = (): void => {
     // .clear() will clean up remaining errors on topics
     this.settings.removeNodeValidator(this.#imageOnlyModeTopicSettingsValidator);
     this.clear({ clearTransforms: true, resetAllFramesCursor: true });
@@ -779,7 +774,9 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   public setColorScheme(colorScheme: "dark" | "light", backgroundColor: string | undefined): void {
     this.colorScheme = colorScheme;
 
-    const bgColor = backgroundColor ? stringToRgb(tempColor, backgroundColor) : undefined;
+    const bgColor = backgroundColor
+      ? stringToRgb(tempColor, backgroundColor).convertSRGBToLinear()
+      : undefined;
 
     for (const extension of this.sceneExtensions.values()) {
       extension.setColorScheme(colorScheme, bgColor);
@@ -850,10 +847,6 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   public resetView(): void {
     this.#imageModeExtension?.resetViewModifications();
     this.queueAnimationFrame();
-  }
-
-  public getCurrentImage(): DownloadImageInfo | undefined {
-    return this.#imageModeExtension?.getLatestImage();
   }
 
   public setSelectedRenderable(selection: PickedRenderable | undefined): void {
@@ -1024,7 +1017,10 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
 
   public animationFrame = (): void => {
     this.#animationFrame = undefined;
-    this.#frameHandler(this.currentTime);
+    if (!this.#rendering) {
+      this.#frameHandler(this.currentTime);
+      this.#rendering = false;
+    }
   };
 
   public queueAnimationFrame(): void {
@@ -1045,6 +1041,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   }
 
   #frameHandler = (currentTime: bigint): void => {
+    this.#rendering = true;
     this.currentTime = currentTime;
     this.#updateFrameErrors();
     this.#updateFixedFrameId();
@@ -1326,6 +1323,11 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
 
     this.settings.errors.remove(FOLLOW_TF_PATH, FOLLOW_FRAME_NOT_FOUND);
   }
+  public getContextMenuItems = (): PanelContextMenuItem[] => {
+    return Array.from(this.sceneExtensions.values()).flatMap((extension) =>
+      extension.getContextMenuItems(),
+    );
+  };
 
   #updateResolution(): void {
     const resolution = this.input.canvasSize;
@@ -1346,6 +1348,46 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
         }
       }
     });
+  }
+
+  public getDropStatus = (paths: readonly DraggedMessagePath[]): MessagePathDropStatus => {
+    const effects: ("add" | "replace")[] = [];
+    for (const path of paths) {
+      let effect;
+      for (const extension of this.sceneExtensions.values()) {
+        const maybeEffect = extension.getDropEffectForPath(path);
+        if (maybeEffect) {
+          effect = maybeEffect;
+          break;
+        }
+      }
+      // if a single path does not have a drop effect, all paths are not droppable
+      if (effect == undefined) {
+        return { canDrop: false };
+      }
+      effects.push(effect);
+    }
+    // prioritize replace effect over add
+    const finalEffect = effects.includes("replace") ? "replace" : "add";
+
+    return {
+      canDrop: true,
+      effect: finalEffect,
+    };
+  };
+
+  public handleDrop = (paths: readonly DraggedMessagePath[]): void => {
+    this.updateConfig((draft) => {
+      for (const path of paths) {
+        for (const extension of this.sceneExtensions.values()) {
+          extension.updateConfigForDropPath(draft, path);
+        }
+      }
+    });
+  };
+
+  public setAnalytics(analytics: IAnalytics): void {
+    this.analytics = analytics;
   }
 }
 

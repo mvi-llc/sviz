@@ -3,19 +3,16 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { render } from "@testing-library/react";
-import { act, renderHook } from "@testing-library/react-hooks";
+import { render, act, renderHook } from "@testing-library/react";
 import { SnackbarProvider } from "notistack";
 import { useEffect } from "react";
 
 import {
   CurrentLayoutActions,
-  LayoutID,
   LayoutState,
   useCurrentLayoutActions,
   useCurrentLayoutSelector,
 } from "@foxglove/studio-base/context/CurrentLayoutContext";
-import { LayoutData } from "@foxglove/studio-base/context/CurrentLayoutContext/actions";
 import CurrentLayoutProvider, {
   MAX_SUPPORTED_LAYOUT_VERSION,
 } from "@foxglove/studio-base/providers/CurrentLayoutProvider";
@@ -33,19 +30,14 @@ describe("CurrentLayoutProvider", () => {
       }, [layoutState]);
 
       useEffect(() => {
-        const expectedState: LayoutData = {
-          configById: { "Foo!bar": { setting: 1 } },
-          globalVariables: { var: "hello" },
-          layout: "Foo!bar",
-          playbackConfig: { speed: 0.1 },
-          userNodes: { node1: { name: "node", sourceCode: "node()" } },
-          version: MAX_SUPPORTED_LAYOUT_VERSION + 1,
-        };
-
-        actions.setCurrentLayoutState({
-          selectedLayout: {
-            id: "example" as LayoutID,
-            data: expectedState,
+        actions.setCurrentLayout({
+          data: {
+            configById: { "Foo!bar": { setting: 1 } },
+            globalVariables: { var: "hello" },
+            layout: "Foo!bar",
+            playbackConfig: { speed: 0.1 },
+            userNodes: { node1: { name: "node", sourceCode: "node()" } },
+            version: MAX_SUPPORTED_LAYOUT_VERSION + 1,
           },
         });
       }, [actions]);
@@ -92,11 +84,11 @@ describe("CurrentLayoutProvider", () => {
 
     const actions = result.current;
     expect(result.current).toBe(actions);
-    act(() =>
+    act(() => {
       result.current.savePanelConfigs({
         configs: [{ id: "ExamplePanel!1", config: { foo: "bar" } }],
-      }),
-    );
+      });
+    });
     expect(result.current.savePanelConfigs).toBe(actions.savePanelConfigs);
     (console.warn as jest.Mock).mockClear();
   });
