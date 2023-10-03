@@ -2,15 +2,12 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import * as base64 from "@protobufjs/base64";
 import { Mutex } from "async-mutex";
 import EventEmitter from "eventemitter3";
 
 // foxglove-depcheck-used: @types/dom-webcodecs
 
-const MAX_DECODE_WAIT_MS = 50;
-
-type KeyValuePair = { key: string; value: string };
+const MAX_DECODE_WAIT_MS = 30;
 
 export type VideoPlayerEventTypes = {
   frame: (frame: VideoFrame) => void;
@@ -30,72 +27,20 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
   #decoderInit: VideoDecoderInit;
   #decoder: VideoDecoder;
   #decoderConfig: VideoDecoderConfig | undefined;
-  #hasKeyframe = false;
   #mutex = new Mutex();
+  #timeoutId: ReturnType<typeof setTimeout> | undefined;
   #pendingFrame: VideoFrame | undefined;
   #codedSize: { width: number; height: number } | undefined;
-  #displaySize: { width: number; height: number } | undefined;
 
   /** Reports whether video decoding is supported in this browser session */
   public static IsSupported(): boolean {
     return self.isSecureContext && "VideoDecoder" in globalThis;
   }
 
-  /**
-   * Takes metadata from a `foxglove.CompressedVideo` message and returns a
-   * VideoDecoderConfig object that can be passed to init().
-   * @param metadata Metadata from a `foxglove.CompressedVideo` message
-   * @returns A VideoDecoderConfig object or undefined if required keys are
-   *   missing or parsing failed
-   */
-  public static ParseDecoderConfig(metadata: KeyValuePair[]): VideoDecoderConfig | undefined {
-    // Convert the key=value pairs into a Map
-    const params = new Map<string, string>();
-    for (const { key, value } of metadata) {
-      params.set(key, value);
-    }
-
-    const codec = params.get("codec");
-    const codedWidthStr = params.get("codedWidth") ?? params.get("coded_width");
-    const codedHeightStr = params.get("codedHeight") ?? params.get("coded_height");
-    const displayAspectWidthStr =
-      params.get("displayAspectWidth") ?? params.get("display_aspect_width");
-    const displayAspectHeightStr =
-      params.get("displayAspectHeight") ?? params.get("display_aspect_height");
-    const descriptionStr = params.get("configuration") ?? params.get("description");
-
-    if (!codec) {
-      return undefined;
-    }
-
-    const description = descriptionStr ? base64ToBytes(descriptionStr) : undefined;
-    let codedWidth = codedWidthStr ? parseInt(codedWidthStr, 10) : undefined;
-    let codedHeight = codedHeightStr ? parseInt(codedHeightStr, 10) : undefined;
-    let displayAspectWidth = displayAspectWidthStr
-      ? parseInt(displayAspectWidthStr, 10)
-      : undefined;
-    let displayAspectHeight = displayAspectHeightStr
-      ? parseInt(displayAspectHeightStr, 10)
-      : undefined;
-    codedWidth ||= undefined;
-    codedHeight ||= undefined;
-    displayAspectWidth ||= undefined;
-    displayAspectHeight ||= undefined;
-
-    return {
-      codec,
-      codedHeight,
-      codedWidth,
-      description,
-      displayAspectHeight,
-      displayAspectWidth,
-    };
-  }
-
   public constructor() {
     super();
     this.#decoderInit = {
-      output: (videoFrame) => {
+      output: (videoFrame: VideoFrame) => {
         this.#pendingFrame?.close();
         this.#pendingFrame = videoFrame;
         this.emit("frame", videoFrame);
@@ -125,11 +70,15 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
         return;
       }
 
+      if (this.#decoder.state === "closed") {
+        this.emit("debug", "VideoDecoder is closed, creating a new one");
+        this.#decoder = new VideoDecoder(this.#decoderInit);
+      }
+
       this.emit("debug", `Configuring VideoDecoder with ${JSON.stringify(decoderConfig)}`);
       this.#decoder.configure(decoderConfig);
       this.#decoderConfig = decoderConfig;
       this.#codedSize = undefined;
-      this.#displaySize = undefined;
       if (decoderConfig.codedWidth != undefined && decoderConfig.codedHeight != undefined) {
         this.#codedSize = { width: decoderConfig.codedWidth, height: decoderConfig.codedHeight };
       }
@@ -141,19 +90,14 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
     return this.#decoder.state === "configured";
   }
 
-  /** Returns true if the VideoDecoder has received a keyframe since the last reset. */
-  public hasKeyframe(): boolean {
-    return this.#hasKeyframe;
+  /** Returns the VideoDecoderConfig given to init(), or undefined if init() has not been called. */
+  public decoderConfig(): VideoDecoderConfig | undefined {
+    return this.#decoderConfig;
   }
 
   /** Returns the dimensions of the coded video frames, if known. */
   public codedSize(): { width: number; height: number } | undefined {
     return this.#codedSize;
-  }
-
-  /** Returns the display dimensions of the last decoded video frame, if known. */
-  public displaySize(): { width: number; height: number } | undefined {
-    return this.#displaySize;
   }
 
   /**
@@ -185,22 +129,19 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
         return undefined;
       }
 
-      if (!this.#hasKeyframe) {
-        if (type === "key") {
-          this.#hasKeyframe = true;
-        } else {
-          this.emit("debug", `Waiting for keyframe...`);
-          return undefined;
-        }
-      }
-
       await new Promise<void>((resolve) => {
         const frameHandler = () => {
-          clearTimeout(timeoutId);
+          if (this.#timeoutId != undefined) {
+            clearTimeout(this.#timeoutId);
+          }
           resolve();
         };
 
-        const timeoutId = setTimeout(() => {
+        if (this.#timeoutId != undefined) {
+          clearTimeout(this.#timeoutId);
+        }
+
+        this.#timeoutId = setTimeout(() => {
           this.removeListener("frame", frameHandler);
           this.emit(
             "warn",
@@ -214,7 +155,7 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
         try {
           this.#decoder.decode(new EncodedVideoChunk({ type, data, timestamp: timestampMicros }));
         } catch (unk) {
-          clearTimeout(timeoutId);
+          clearTimeout(this.#timeoutId);
           this.removeListener("frame", frameHandler);
 
           const error = new Error(
@@ -237,12 +178,6 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
         }
         this.#codedSize.width = maybeVideoFrame.codedWidth;
         this.#codedSize.height = maybeVideoFrame.codedHeight;
-
-        if (!this.#displaySize) {
-          this.#displaySize = { width: 0, height: 0 };
-        }
-        this.#displaySize.width = maybeVideoFrame.displayWidth;
-        this.#displaySize.height = maybeVideoFrame.displayHeight;
       }
 
       return maybeVideoFrame;
@@ -255,13 +190,14 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
    * when seeking to a new position in the stream.
    */
   public resetForSeek(): void {
-    this.#decoder.reset();
-    if (this.#decoderConfig) {
-      this.#decoder.configure(this.#decoderConfig);
+    if (this.#decoder.state === "configured") {
+      this.#decoder.reset();
+    }
+    if (this.#timeoutId != undefined) {
+      clearTimeout(this.#timeoutId);
     }
     this.#pendingFrame?.close();
     this.#pendingFrame = undefined;
-    this.#hasKeyframe = false;
   }
 
   /**
@@ -269,18 +205,13 @@ export class VideoPlayer extends EventEmitter<VideoPlayerEventTypes> {
    * stream information or decoder configuration.
    */
   public close(): void {
-    this.#decoder.close();
+    if (this.#decoder.state !== "closed") {
+      this.#decoder.close();
+    }
+    if (this.#timeoutId != undefined) {
+      clearTimeout(this.#timeoutId);
+    }
     this.#pendingFrame?.close();
     this.#pendingFrame = undefined;
   }
-}
-
-function base64ToBytes(b64Str: string): Uint8Array {
-  const length = base64.length(b64Str);
-  let bytes = new Uint8Array(length);
-  const written = base64.decode(b64Str, bytes, 0);
-  if (written !== length) {
-    bytes = bytes.subarray(0, written);
-  }
-  return bytes;
 }

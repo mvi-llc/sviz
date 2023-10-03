@@ -2321,7 +2321,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@foxglove/den@workspace:packages/den"
   dependencies:
-    "@protobufjs/base64": 1.1.2
     "@types/dom-webcodecs": 0.1.7
     async-mutex: 0.4.0
     eventemitter3: 5.0.1

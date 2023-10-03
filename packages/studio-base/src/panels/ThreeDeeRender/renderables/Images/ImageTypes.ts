@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 import { Time } from "@foxglove/rostime";
-import { CompressedImage, KeyValuePair, RawImage } from "@foxglove/schemas";
+import { CompressedImage, RawImage } from "@foxglove/schemas";
 import { CAMERA_CALIBRATION_DATATYPES } from "@foxglove/studio-base/panels/ThreeDeeRender/foxglove";
 
 import {
@@ -21,8 +21,7 @@ export type CompressedVideo = {
   timestamp: Time;
   frame_id: string;
   data: Uint8Array;
-  keyframe: boolean;
-  metadata: KeyValuePair[];
+  format: string;
 };
 
 export type CompressedImageTypes = RosCompressedImage | CompressedImage;

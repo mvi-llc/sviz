@@ -16,11 +16,13 @@ import { WorkerImageDecoder } from "@foxglove/studio-base/panels/ThreeDeeRender/
 import { projectPixel } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/projections";
 import { RosValue } from "@foxglove/studio-base/players/types";
 
-import { AnyImage } from "./ImageTypes";
+import { AnyImage, CompressedVideo } from "./ImageTypes";
 import {
   RawImageOptions,
   decodeCompressedImageToBitmap,
   decodeCompressedVideoToBitmap,
+  emptyVideoFrame,
+  getVideoDecoderConfig,
 } from "./decodeImage";
 import { CameraInfo } from "../../ros";
 
@@ -36,6 +38,9 @@ export interface ImageRenderableSettings {
   minValue?: number;
   maxValue?: number;
 }
+
+const IMAGE_FORMATS = new Set(["jpeg", "png", "webp"]);
+const VIDEO_FORMATS = new Set(["h264"]);
 
 const CREATE_BITMAP_ERR_KEY = "CreateBitmap";
 const IMAGE_TOPIC_PATH = ["imageMode", "imageTopic"];
@@ -183,65 +188,68 @@ export class ImageRenderable extends Renderable<ImageUserData> {
     this.userData.image = image;
 
     const setError = (err: Error): void => {
-      log.error(err);
       if (this.#disposed) {
         return;
       }
-      this.renderer.settings.errors.add(
-        IMAGE_TOPIC_PATH,
-        CREATE_BITMAP_ERR_KEY,
-        `Error creating bitmap: ${err.message}`,
-      );
+      this.renderer.settings.errors.add(IMAGE_TOPIC_PATH, CREATE_BITMAP_ERR_KEY, err.message);
       this.renderer.settings.errors.addToTopic(
         this.userData.topic,
         CREATE_BITMAP_ERR_KEY,
-        `Error creating bitmap: ${err.message}`,
+        err.message,
       );
     };
 
     const seq = ++this.#receivedImageSequenceNumber;
     let decodePromise: Promise<ImageBitmap | ImageData> | undefined;
 
-    if ("keyframe" in image) {
-      this.videoPlayer ??= new VideoPlayer();
+    if ("format" in image) {
+      if (VIDEO_FORMATS.has(image.format)) {
+        const frameMsg = image as CompressedVideo;
 
-      if (!this.videoPlayer.isInitialized()) {
-        if (image.keyframe) {
-          // This is a keyframe, use the parsed metadata to initialize the video player
-          const decoderConfig = VideoPlayer.ParseDecoderConfig(image.metadata);
-          if (!decoderConfig) {
-            setError(new Error("Could not parse video metadata"));
-            return;
-          }
-          decodePromise = this.videoPlayer
-            .init(decoderConfig)
-            .then(
-              async () =>
-                await decodeCompressedVideoToBitmap(
-                  image,
-                  this.videoPlayer,
-                  this.userData.firstMessageTime,
-                  resizeWidth,
-                ),
-            );
-        } else {
-          // Video player is not initialized and this is not a keyframe, so we can't decode it
-          setError(new Error("Waiting for keyframe"));
+        if (frameMsg.data.byteLength === 0) {
+          setError(new Error("Empty video frame"));
           return;
         }
+
+        if (!this.videoPlayer) {
+          this.videoPlayer = new VideoPlayer();
+          this.videoPlayer.on("error", (err) => setError(err));
+          this.videoPlayer.on("warn", (msg) => log.warn(msg));
+        }
+        const videoPlayer = this.videoPlayer;
+
+        decodePromise = (async () => {
+          // Initialize the video player if needed
+          if (!videoPlayer.isInitialized()) {
+            const decoderConfig = getVideoDecoderConfig(frameMsg);
+            if (decoderConfig) {
+              await videoPlayer.init(decoderConfig);
+            } else {
+              setError(new Error("Waiting for keyframe"));
+              return await emptyVideoFrame(this.videoPlayer, resizeWidth);
+            }
+          }
+
+          assert(this.userData.firstMessageTime != undefined, "firstMessageTime must be set");
+
+          return await decodeCompressedVideoToBitmap(
+            frameMsg,
+            videoPlayer,
+            this.userData.firstMessageTime,
+            resizeWidth,
+          );
+        })();
+      } else if (IMAGE_FORMATS.has(image.format)) {
+        decodePromise = decodeCompressedImageToBitmap(image, resizeWidth);
       } else {
-        decodePromise = decodeCompressedVideoToBitmap(
-          image,
-          this.videoPlayer,
-          this.userData.firstMessageTime,
-          resizeWidth,
-        );
+        setError(new Error(`Unsupported format: "${image.format}"`));
+        return;
       }
     } else {
-      decodePromise =
-        "format" in image
-          ? decodeCompressedImageToBitmap(image, resizeWidth)
-          : (this.#decoder ??= new WorkerImageDecoder()).decode(image, this.#rawImageOptions);
+      decodePromise = (this.#decoder ??= new WorkerImageDecoder()).decode(
+        image,
+        this.#rawImageOptions,
+      );
     }
 
     decodePromise
@@ -263,7 +271,7 @@ export class ImageRenderable extends Renderable<ImageUserData> {
         this.renderer.settings.errors.removeFromTopic(this.userData.topic, CREATE_BITMAP_ERR_KEY);
         this.renderer.queueAnimationFrame();
       })
-      .catch(setError);
+      .catch((err) => setError(new Error(`Error creating bitmap: ${err.message}`)));
   }
 
   public update(): void {

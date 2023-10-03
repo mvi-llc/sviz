@@ -17,7 +17,7 @@ import {
   decodeUYVY,
   decodeYUYV,
 } from "@foxglove/den/image";
-import { VideoPlayer } from "@foxglove/den/video";
+import { H264, VideoPlayer } from "@foxglove/den/video";
 import { toMicroSec } from "@foxglove/rostime";
 import { RawImage } from "@foxglove/schemas";
 
@@ -32,17 +32,34 @@ export async function decodeCompressedImageToBitmap(
   return await createImageBitmap(bitmapData, { resizeWidth });
 }
 
+export function isVideoKeyframe(frameMsg: CompressedVideo): boolean {
+  switch (frameMsg.format) {
+    case "h264": {
+      // Search for an IDR NAL unit to determine if this is a keyframe
+      return H264.IsKeyframe(frameMsg.data);
+    }
+  }
+  return false;
+}
+
+export function getVideoDecoderConfig(frameMsg: CompressedVideo): VideoDecoderConfig | undefined {
+  switch (frameMsg.format) {
+    case "h264": {
+      // Search for an SPS NAL unit to initialize the decoder. This should precede each keyframe
+      return H264.ParseDecoderConfig(frameMsg.data);
+    }
+  }
+
+  return undefined;
+}
+
 export async function decodeCompressedVideoToBitmap(
   frameMsg: CompressedVideo,
-  videoPlayer?: VideoPlayer,
-  firstMessageTime?: bigint,
+  videoPlayer: VideoPlayer,
+  firstMessageTime: bigint,
   resizeWidth?: number,
 ): Promise<ImageBitmap> {
-  if (
-    videoPlayer?.isInitialized() !== true ||
-    (!videoPlayer.hasKeyframe() && !frameMsg.keyframe) ||
-    firstMessageTime == undefined
-  ) {
+  if (!videoPlayer.isInitialized()) {
     return await emptyVideoFrame(videoPlayer, resizeWidth);
   }
 
@@ -53,7 +70,7 @@ export async function decodeCompressedVideoToBitmap(
   const videoFrame = await videoPlayer.decode(
     frameMsg.data,
     timestampMicros,
-    frameMsg.keyframe ? "key" : "delta",
+    isVideoKeyframe(frameMsg) ? "key" : "delta",
   );
   if (videoFrame) {
     const imageBitmap = await self.createImageBitmap(videoFrame, { resizeWidth });
@@ -132,7 +149,10 @@ export function decodeRawImage(
 
 // Performance sensitive, skip the extra await when returning a blank image
 // eslint-disable-next-line @typescript-eslint/promise-function-async
-function emptyVideoFrame(videoPlayer?: VideoPlayer, resizeWidth?: number): Promise<ImageBitmap> {
+export function emptyVideoFrame(
+  videoPlayer?: VideoPlayer,
+  resizeWidth?: number,
+): Promise<ImageBitmap> {
   const width = resizeWidth ?? 32;
   const size = videoPlayer?.codedSize() ?? { width, height: width };
   const data = new ImageData(size.width, size.height);
