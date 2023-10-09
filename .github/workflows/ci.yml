@@ -67,42 +67,6 @@ jobs:
 
       - run: ${{ matrix.config.command }}
 
-  storybook:
-    name: storybook (ubuntu-20.04)
-    runs-on: ubuntu-20.04
-
-    steps:
-      - uses: actions/checkout@v4.1.0
-        with:
-          fetch-depth: 0 # Required for Chromatic
-          lfs: true
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 16.17
-      - run: corepack enable yarn
-
-      - name: Restore cache
-        uses: actions/cache@v3.3.2
-        with:
-          path: |
-            .yarn/cache
-            **/node_modules
-          key: v5-${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: v5-${{ runner.os }}-yarn-
-
-      - run: yarn install --immutable
-
-      - run: yarn workspace @foxglove/studio-base run storybook:build
-
-      - uses: chromaui/action@v1
-        with:
-          autoAcceptChanges: main
-          exitOnceUploaded: true
-          onlyChanged: true
-          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
-          storybookBuildDir: storybook-static
-
   integration:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
@@ -152,7 +116,7 @@ jobs:
   release:
     name: Publish to S3 and GHCR
     runs-on: ubuntu-20.04
-    needs: [test, storybook, integration]
+    needs: [test, integration]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
