@@ -2507,7 +2507,7 @@ __metadata:
     flatbuffers_reflection: 0.0.7
     protobufjs: "patch:protobufjs@7.2.4#../../patches/protobufjs.patch"
     typescript: 5.2.2
-    wasm-cbuf: 2.2.0
+    wasm-cbuf: 2.3.0
   languageName: unknown
   linkType: soft
 
@@ -22040,12 +22040,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"wasm-cbuf@npm:2.2.0":
-  version: 2.2.0
-  resolution: "wasm-cbuf@npm:2.2.0"
+"wasm-cbuf@npm:2.3.0":
+  version: 2.3.0
+  resolution: "wasm-cbuf@npm:2.3.0"
   dependencies:
     "@foxglove/message-definition": ^0.2.0
-  checksum: 501c3ffbf9b54a53bde5b190ec1387902348c88778a8a4a7d3ea8f1556bdbc9aae0a22b5792ab0dfb51d8d17d582108b1849d2a12ddb83caf036abbd6422f092
+  checksum: bf34d068c1ffa5c60a9165236590898125800918229df66997c41bcc8bd5944d55a1eadd0de94027e8ecad54b2d4c1aa6ea8cdc368e76d064d2f3de6f4c260a3
   languageName: node
   linkType: hard
 
