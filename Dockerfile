@@ -10,7 +10,7 @@ RUN yarn run web:build:prod
 
 # Release stage
 FROM caddy:2.6.4-alpine
-WORKDIR /src
+WORKDIR /app
 COPY --from=build /src/web/.webpack ./
 
 EXPOSE 80
@@ -25,8 +25,9 @@ replace_value=\$(cat /foxglove/default-layout.json)
 echo "\${index_html/"\$replace_pattern"/\$replace_value}" > index.html
 
 # Optionally set the extensions manifest via bind mount
-if [ -f /src/extensions/manifest.json ]; then
-  extensions_json=\$(cat /src/extensions/manifest.json)
+if [ -f /app/extensions/manifest.json ]; then
+  index_html=\$(cat index.html)
+  extensions_json=\$(cat /app/extensions/manifest.json)
   replace_pattern='/*FOXGLOVE_STUDIO_EXTENSIONS_PLACEHOLDER*/'
   echo "\${index_html/"\$replace_pattern"/\$extensions_json}" > index.html
 fi
