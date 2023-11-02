@@ -7,6 +7,7 @@ import * as _ from "lodash-es";
 import { fromRFC3339String, toRFC3339String, Time } from "@foxglove/rostime";
 
 export type AppURLState = {
+  kiosk?: boolean;
   ds?: string;
   dsParams?: Record<string, string>;
   time?: Time;
@@ -21,6 +22,14 @@ export type AppURLState = {
  */
 export function updateAppURLState(url: URL, urlState: AppURLState): URL {
   const newURL = new URL(url.href);
+
+  if ("kiosk" in urlState) {
+    if (urlState.kiosk === true) {
+      newURL.searchParams.set("kiosk", "true");
+    } else {
+      newURL.searchParams.delete("kiosk");
+    }
+  }
 
   if ("time" in urlState) {
     if (urlState.time) {
@@ -63,6 +72,7 @@ export function updateAppURLState(url: URL, urlState: AppURLState): URL {
  * @throws Error if URL parsing fails.
  */
 export function parseAppURLState(url: URL): AppURLState | undefined {
+  const kiosk = url.searchParams.get("kiosk") ?? undefined;
   const ds = url.searchParams.get("ds") ?? undefined;
   const timeString = url.searchParams.get("time");
   const time = timeString == undefined ? undefined : fromRFC3339String(timeString);
@@ -82,6 +92,9 @@ export function parseAppURLState(url: URL): AppURLState | undefined {
     },
     _.isEmpty,
   );
+  if (kiosk === "true") {
+    state.kiosk = true;
+  }
 
   return _.isEmpty(state) ? undefined : state;
 }

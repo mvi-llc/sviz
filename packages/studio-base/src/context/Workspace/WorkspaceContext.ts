@@ -37,6 +37,9 @@ export type WorkspaceContextStore = {
     active: undefined | string;
     shown: string[];
   };
+  kioskMode: {
+    active: boolean;
+  };
   playbackControls: {
     repeat: boolean;
   };
@@ -64,6 +67,7 @@ export const WorkspaceStoreSelectors = {
   selectPanelSettingsOpen: (store: WorkspaceContextStore): boolean => {
     return store.sidebars.left.open && store.sidebars.left.item === "panel-settings";
   },
+  selectKioskModeActive: (store: WorkspaceContextStore): boolean => store.kioskMode.active,
 };
 
 /**

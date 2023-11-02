@@ -38,6 +38,10 @@ import {
   useHoverValue,
   useSetHoverValue,
 } from "@foxglove/studio-base/context/TimelineInteractionStateContext";
+import {
+  useWorkspaceStore,
+  WorkspaceStoreSelectors,
+} from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
 import useGlobalVariables from "@foxglove/studio-base/hooks/useGlobalVariables";
 import {
   AdvertiseOptions,
@@ -288,6 +292,8 @@ function PanelExtensionAdapter(
 
   const updatePanelSettingsTree = usePanelSettingsTreeUpdate();
 
+  const kioskModeActive = useWorkspaceStore(WorkspaceStoreSelectors.selectKioskModeActive);
+
   type PartialPanelExtensionContext = Omit<BuiltinPanelExtensionContext, "panelElement">;
   const partialExtensionContext = useMemo<PartialPanelExtensionContext>(() => {
     const layout: PanelExtensionContext["layout"] = {
@@ -332,6 +338,8 @@ function PanelExtensionAdapter(
         : undefined,
 
       dataSourceProfile,
+
+      kioskModeActive,
 
       setParameter: (name: string, value: ParameterValue) => {
         if (!isMounted()) {
@@ -519,6 +527,7 @@ function PanelExtensionAdapter(
     getMessagePipelineContext,
     initialState,
     isMounted,
+    kioskModeActive,
     openSiblingPanel,
     panelId,
     saveConfig,

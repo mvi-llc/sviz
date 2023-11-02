@@ -76,6 +76,7 @@ export function TabbedToolbar(props: Props): JSX.Element {
             <AddIcon fontSize="inherit" />
           </ToolbarIconButton>
         }
+        alwaysShow={true}
       >
         <Stack
           direction="row"

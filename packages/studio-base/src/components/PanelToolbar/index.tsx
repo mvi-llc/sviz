@@ -18,6 +18,10 @@ import { makeStyles } from "tss-react/mui";
 
 import PanelContext from "@foxglove/studio-base/components/PanelContext";
 import ToolbarIconButton from "@foxglove/studio-base/components/PanelToolbar/ToolbarIconButton";
+import {
+  useWorkspaceStore,
+  WorkspaceStoreSelectors,
+} from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
 import { useDefaultPanelTitle } from "@foxglove/studio-base/providers/PanelStateContextProvider";
 import { PANEL_TITLE_CONFIG_KEY } from "@foxglove/studio-base/util/layout";
 
@@ -31,6 +35,7 @@ type Props = {
   children?: React.ReactNode;
   className?: string;
   isUnknownPanel?: boolean;
+  alwaysShow?: boolean;
 };
 
 const useStyles = makeStyles()((theme) => ({
@@ -59,6 +64,7 @@ export default React.memo<Props>(function PanelToolbar({
   children,
   className,
   isUnknownPanel = false,
+  alwaysShow = false,
 }: Props) {
   const { classes, cx } = useStyles();
   const {
@@ -102,13 +108,21 @@ export default React.memo<Props>(function PanelToolbar({
       ? customTitle
       : defaultPanelTitle;
 
+  const kioskModeActive = useWorkspaceStore(WorkspaceStoreSelectors.selectKioskModeActive);
+
+  const hideToolbar = !alwaysShow && kioskModeActive && customTitle == undefined;
+
   const title = customPanelTitle ?? panelContext?.title;
   return (
     <header
       className={cx(classes.root, className)}
       data-testid="mosaic-drag-handle"
       ref={rootDragRef}
-      style={{ backgroundColor, cursor: rootDragRef != undefined ? "grab" : "auto" }}
+      style={{
+        backgroundColor,
+        cursor: !kioskModeActive && rootDragRef != undefined ? "grab" : "auto",
+        display: hideToolbar ? "none" : undefined,
+      }}
     >
       {children ??
         (title && (

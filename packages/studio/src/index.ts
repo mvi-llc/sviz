@@ -294,6 +294,13 @@ export type PanelExtensionContext = {
   readonly dataSourceProfile?: string;
 
   /**
+   * Set to true when Studio is in kiosk mode. Kiosk mode hides most of the Studio UI and disables
+   * layout editing. Panels can use this to disable interactivity or hide UI that is not relevant in
+   * kiosk mode.
+   */
+  readonly kioskModeActive: boolean;
+
+  /**
    * Subscribe to updates on this field within the render state. Render will only be invoked when
    * this field changes.
    */

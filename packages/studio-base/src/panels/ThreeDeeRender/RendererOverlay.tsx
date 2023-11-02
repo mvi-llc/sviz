@@ -87,6 +87,7 @@ type Props = {
   publishActive: boolean;
   publishClickType: PublishClickType;
   timezone: string | undefined;
+  kioskModeActive: boolean;
 };
 
 /**
@@ -292,6 +293,10 @@ export function RendererOverlay(props: Props): JSX.Element {
 
   const mousePresenceRef = useRef<HTMLDivElement>(ReactNull);
   const mousePresent = usePanelMousePresence(mousePresenceRef);
+
+  if (props.kioskModeActive) {
+    return <></>;
+  }
 
   return (
     <>

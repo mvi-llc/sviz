@@ -313,6 +313,8 @@ export default function Panel<
 
     const panelSettingsOpen = useWorkspaceStore(WorkspaceStoreSelectors.selectPanelSettingsOpen);
 
+    const kioskModeActive = useWorkspaceStore(WorkspaceStoreSelectors.selectKioskModeActive);
+
     const onPanelRootClick: MouseEventHandler<HTMLDivElement> = useCallback(
       (e) => {
         if (panelSettingsOpen) {
@@ -629,8 +631,12 @@ export default function Panel<
             setMessagePathDropConfig,
           }}
         >
-          <KeyListener global keyUpHandlers={keyUpHandlers} keyDownHandlers={keyDownHandlers} />
-          {fullscreen && <KeyListener global keyDownHandlers={fullScreenKeyHandlers} />}
+          {!kioskModeActive && (
+            <KeyListener global keyUpHandlers={keyUpHandlers} keyDownHandlers={keyDownHandlers} />
+          )}
+          {!kioskModeActive && fullscreen && (
+            <KeyListener global keyDownHandlers={fullScreenKeyHandlers} />
+          )}
           <Transition
             in={fullscreen}
             onExited={() => {

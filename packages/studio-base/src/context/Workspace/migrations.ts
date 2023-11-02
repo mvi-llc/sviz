@@ -60,6 +60,9 @@ export function migrateV0WorkspaceState(
       active: undefined,
       shown: v0State.featureTours.shown,
     },
+    kioskMode: {
+      active: false,
+    },
     sidebars: {
       left: {
         item: v0State.leftSidebarItem,

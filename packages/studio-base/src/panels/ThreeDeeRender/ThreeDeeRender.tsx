@@ -825,6 +825,7 @@ export function ThreeDeeRender(props: {
               renderer?.publishClickTool.start();
             }}
             timezone={timezone}
+            kioskModeActive={context.kioskModeActive}
           />
         </RendererContext.Provider>
       </div>

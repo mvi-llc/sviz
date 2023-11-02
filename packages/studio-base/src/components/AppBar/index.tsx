@@ -25,6 +25,7 @@ import {
 } from "@foxglove/studio-base/context/CurrentLayoutContext";
 import {
   WorkspaceContextStore,
+  WorkspaceStoreSelectors,
   useWorkspaceStore,
 } from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
 import { useWorkspaceActions } from "@foxglove/studio-base/context/Workspace/useWorkspaceActions";
@@ -178,6 +179,8 @@ export function AppBar(props: AppBarProps): JSX.Element {
   const leftSidebarOpen = useWorkspaceStore(selectLeftSidebarOpen);
   const rightSidebarOpen = useWorkspaceStore(selectRightSidebarOpen);
 
+  const kioskModeActive = useWorkspaceStore(WorkspaceStoreSelectors.selectKioskModeActive);
+
   const { sidebarActions } = useWorkspaceActions();
 
   const [appMenuEl, setAppMenuEl] = useState<undefined | HTMLElement>(undefined);
@@ -192,122 +195,128 @@ export function AppBar(props: AppBarProps): JSX.Element {
     <>
       <AppBarContainer onDoubleClick={onDoubleClick} leftInset={leftInset}>
         <div className={classes.toolbar}>
-          <div className={classes.start}>
-            <div className={classes.startInner}>
-              <IconButton
-                className={cx(classes.logo, { "Mui-selected": appMenuOpen })}
-                color="inherit"
-                id="app-menu-button"
-                title="Menu"
-                aria-controls={appMenuOpen ? "app-menu" : undefined}
-                aria-haspopup="true"
-                aria-expanded={appMenuOpen ? "true" : undefined}
-                data-tourid="app-menu-button"
-                onClick={(event) => {
-                  setAppMenuEl(event.currentTarget);
-                }}
-              >
-                <FoxgloveLogo fontSize="inherit" color="inherit" />
-                <ChevronDown12Regular
-                  className={classes.dropDownIcon}
-                  primaryFill={theme.palette.common.white}
+          {!kioskModeActive && (
+            <div className={classes.start}>
+              <div className={classes.startInner}>
+                <IconButton
+                  className={cx(classes.logo, { "Mui-selected": appMenuOpen })}
+                  color="inherit"
+                  id="app-menu-button"
+                  title="Menu"
+                  aria-controls={appMenuOpen ? "app-menu" : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={appMenuOpen ? "true" : undefined}
+                  data-tourid="app-menu-button"
+                  onClick={(event) => {
+                    setAppMenuEl(event.currentTarget);
+                  }}
+                >
+                  <FoxgloveLogo fontSize="inherit" color="inherit" />
+                  <ChevronDown12Regular
+                    className={classes.dropDownIcon}
+                    primaryFill={theme.palette.common.white}
+                  />
+                </IconButton>
+                <AppMenu
+                  open={appMenuOpen}
+                  anchorEl={appMenuEl}
+                  handleClose={() => {
+                    setAppMenuEl(undefined);
+                  }}
                 />
-              </IconButton>
-              <AppMenu
-                open={appMenuOpen}
-                anchorEl={appMenuEl}
-                handleClose={() => {
-                  setAppMenuEl(undefined);
-                }}
-              />
-              <AppBarIconButton
-                className={cx({ "Mui-selected": panelMenuOpen })}
-                color="inherit"
-                disabled={!hasCurrentLayout}
-                id="add-panel-button"
-                data-tourid="add-panel-button"
-                title={t("addPanel")}
-                aria-label="Add panel button"
-                aria-controls={panelMenuOpen ? "add-panel-menu" : undefined}
-                aria-haspopup="true"
-                aria-expanded={panelMenuOpen ? "true" : undefined}
-                onClick={(event) => {
-                  setPanelAnchorEl(event.currentTarget);
-                }}
-              >
-                <SlideAdd24Regular />
-              </AppBarIconButton>
+                <AppBarIconButton
+                  className={cx({ "Mui-selected": panelMenuOpen })}
+                  color="inherit"
+                  disabled={!hasCurrentLayout}
+                  id="add-panel-button"
+                  data-tourid="add-panel-button"
+                  title={t("addPanel")}
+                  aria-label="Add panel button"
+                  aria-controls={panelMenuOpen ? "add-panel-menu" : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={panelMenuOpen ? "true" : undefined}
+                  onClick={(event) => {
+                    setPanelAnchorEl(event.currentTarget);
+                  }}
+                >
+                  <SlideAdd24Regular />
+                </AppBarIconButton>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className={classes.middle}>
             <DataSource />
           </div>
 
-          <div className={classes.end}>
-            <div className={classes.endInner}>
-              {appBarLayoutButton}
-              <Stack direction="row" alignItems="center" data-tourid="sidebar-button-group">
-                <AppBarIconButton
-                  title={
-                    <>
-                      {leftSidebarOpen ? t("hideLeftSidebar") : t("showLeftSidebar")}{" "}
-                      <kbd className={classes.keyEquivalent}>[</kbd>
-                    </>
-                  }
-                  aria-label={`${leftSidebarOpen ? t("hideLeftSidebar") : t("showLeftSidebar")}`}
-                  onClick={() => {
-                    sidebarActions.left.setOpen(!leftSidebarOpen);
-                  }}
-                  data-tourid="left-sidebar-button"
-                >
-                  {leftSidebarOpen ? <PanelLeft24Filled /> : <PanelLeft24Regular />}
-                </AppBarIconButton>
-                <AppBarIconButton
-                  title={
-                    <>
-                      {rightSidebarOpen ? t("hideRightSidebar") : t("showRightSidebar")}{" "}
-                      <kbd className={classes.keyEquivalent}>]</kbd>
-                    </>
-                  }
-                  aria-label={`${rightSidebarOpen ? t("hideRightSidebar") : t("showRightSidebar")}`}
-                  onClick={() => {
-                    sidebarActions.right.setOpen(!rightSidebarOpen);
-                  }}
-                  data-tourid="right-sidebar-button"
-                >
-                  {rightSidebarOpen ? <PanelRight24Filled /> : <PanelRight24Regular />}
-                </AppBarIconButton>
-              </Stack>
-              <Tooltip classes={{ tooltip: classes.tooltip }} title="Profile" arrow={false}>
-                <IconButton
-                  className={cx(classes.iconButton, { "Mui-selected": userMenuOpen })}
-                  aria-label="User profile menu button"
-                  color="inherit"
-                  id="user-button"
-                  data-tourid="user-button"
-                  aria-controls={userMenuOpen ? "user-menu" : undefined}
-                  aria-haspopup="true"
-                  aria-expanded={userMenuOpen ? "true" : undefined}
-                  onClick={(event) => {
-                    setUserAnchorEl(event.currentTarget);
-                  }}
-                  data-testid="user-button"
-                >
-                  <Avatar className={classes.avatar} variant="rounded" />
-                </IconButton>
-              </Tooltip>
-              {showCustomWindowControls && (
-                <CustomWindowControls
-                  onMinimizeWindow={onMinimizeWindow}
-                  isMaximized={isMaximized}
-                  onUnmaximizeWindow={onUnmaximizeWindow}
-                  onMaximizeWindow={onMaximizeWindow}
-                  onCloseWindow={onCloseWindow}
-                />
-              )}
+          {!kioskModeActive && (
+            <div className={classes.end}>
+              <div className={classes.endInner}>
+                {appBarLayoutButton}
+                <Stack direction="row" alignItems="center" data-tourid="sidebar-button-group">
+                  <AppBarIconButton
+                    title={
+                      <>
+                        {leftSidebarOpen ? t("hideLeftSidebar") : t("showLeftSidebar")}{" "}
+                        <kbd className={classes.keyEquivalent}>[</kbd>
+                      </>
+                    }
+                    aria-label={`${leftSidebarOpen ? t("hideLeftSidebar") : t("showLeftSidebar")}`}
+                    onClick={() => {
+                      sidebarActions.left.setOpen(!leftSidebarOpen);
+                    }}
+                    data-tourid="left-sidebar-button"
+                  >
+                    {leftSidebarOpen ? <PanelLeft24Filled /> : <PanelLeft24Regular />}
+                  </AppBarIconButton>
+                  <AppBarIconButton
+                    title={
+                      <>
+                        {rightSidebarOpen ? t("hideRightSidebar") : t("showRightSidebar")}{" "}
+                        <kbd className={classes.keyEquivalent}>]</kbd>
+                      </>
+                    }
+                    aria-label={`${
+                      rightSidebarOpen ? t("hideRightSidebar") : t("showRightSidebar")
+                    }`}
+                    onClick={() => {
+                      sidebarActions.right.setOpen(!rightSidebarOpen);
+                    }}
+                    data-tourid="right-sidebar-button"
+                  >
+                    {rightSidebarOpen ? <PanelRight24Filled /> : <PanelRight24Regular />}
+                  </AppBarIconButton>
+                </Stack>
+                <Tooltip classes={{ tooltip: classes.tooltip }} title="Profile" arrow={false}>
+                  <IconButton
+                    className={cx(classes.iconButton, { "Mui-selected": userMenuOpen })}
+                    aria-label="User profile menu button"
+                    color="inherit"
+                    id="user-button"
+                    data-tourid="user-button"
+                    aria-controls={userMenuOpen ? "user-menu" : undefined}
+                    aria-haspopup="true"
+                    aria-expanded={userMenuOpen ? "true" : undefined}
+                    onClick={(event) => {
+                      setUserAnchorEl(event.currentTarget);
+                    }}
+                    data-testid="user-button"
+                  >
+                    <Avatar className={classes.avatar} variant="rounded" />
+                  </IconButton>
+                </Tooltip>
+                {showCustomWindowControls && (
+                  <CustomWindowControls
+                    onMinimizeWindow={onMinimizeWindow}
+                    isMaximized={isMaximized}
+                    onUnmaximizeWindow={onUnmaximizeWindow}
+                    onMaximizeWindow={onMaximizeWindow}
+                    onCloseWindow={onCloseWindow}
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </AppBarContainer>
       <AddPanelMenu

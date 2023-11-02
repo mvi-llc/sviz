@@ -53,6 +53,7 @@ import {
   LeftSidebarItemKey,
   RightSidebarItemKey,
   WorkspaceContextStore,
+  WorkspaceStoreSelectors,
   useWorkspaceStore,
 } from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
 import { useAppConfigurationValue } from "@foxglove/studio-base/hooks";
@@ -120,12 +121,14 @@ function WorkspaceContent(props: WorkspaceProps): JSX.Element {
   const playerPresence = useMessagePipeline(selectPlayerPresence);
   const playerProblems = useMessagePipeline(selectPlayerProblems);
 
+  const kioskModeActive = useWorkspaceStore(WorkspaceStoreSelectors.selectKioskModeActive);
+
   const dataSourceDialog = useWorkspaceStore(selectWorkspaceDataSourceDialog);
   const leftSidebarItem = useWorkspaceStore(selectWorkspaceLeftSidebarItem);
-  const leftSidebarOpen = useWorkspaceStore(selectWorkspaceLeftSidebarOpen);
+  const leftSidebarOpen = useWorkspaceStore(selectWorkspaceLeftSidebarOpen) && !kioskModeActive;
   const leftSidebarSize = useWorkspaceStore(selectWorkspaceLeftSidebarSize);
   const rightSidebarItem = useWorkspaceStore(selectWorkspaceRightSidebarItem);
-  const rightSidebarOpen = useWorkspaceStore(selectWorkspaceRightSidebarOpen);
+  const rightSidebarOpen = useWorkspaceStore(selectWorkspaceRightSidebarOpen) && !kioskModeActive;
   const rightSidebarSize = useWorkspaceStore(selectWorkspaceRightSidebarSize);
   const { t } = useTranslation("workspace");
   const { AppBarComponent = AppBar } = props;
@@ -455,10 +458,12 @@ function WorkspaceContent(props: WorkspaceProps): JSX.Element {
 
   return (
     <PanelStateContextProvider>
-      {dataSourceDialog.open && <DataSourceDialog />}
-      <DocumentDropListener onDrop={dropHandler} allowedExtensions={allowedDropExtensions} />
+      {!kioskModeActive && dataSourceDialog.open && <DataSourceDialog />}
+      {!kioskModeActive && (
+        <DocumentDropListener onDrop={dropHandler} allowedExtensions={allowedDropExtensions} />
+      )}
       <SyncAdapters />
-      <KeyListener global keyDownHandlers={keyDownHandlers} />
+      {!kioskModeActive && <KeyListener global keyDownHandlers={keyDownHandlers} />}
       <div className={classes.container} ref={containerRef} tabIndex={0}>
         <AppBarComponent
           leftInset={props.appBarLeftInset}
@@ -517,10 +522,15 @@ export default function Workspace(props: WorkspaceProps): JSX.Element {
 
   const isPlayerPresent = useMessagePipeline(selectPlayerIsPresent);
 
+  const kioskModeActive = useMemo(() => {
+    const deepLinks = props.deepLinks ?? [];
+    return deepLinks[0] ? parseAppURLState(new URL(deepLinks[0]))?.kiosk ?? false : false;
+  }, [props.deepLinks]);
+
   const initialItem: undefined | DataSourceDialogItem =
     isPlayerPresent || !showOpenDialogOnStartup ? undefined : "start";
 
-  const initialState: Pick<WorkspaceContextStore, "dialogs"> = {
+  const initialState: Pick<WorkspaceContextStore, "dialogs" | "kioskMode"> = {
     dialogs: {
       dataSource: {
         activeDataSource: undefined,
@@ -531,6 +541,9 @@ export default function Workspace(props: WorkspaceProps): JSX.Element {
         initialTab: undefined,
         open: false,
       },
+    },
+    kioskMode: {
+      active: kioskModeActive,
     },
   };
 

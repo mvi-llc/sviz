@@ -23,6 +23,10 @@ import {
   PanelStateStore,
   usePanelStateStore,
 } from "@foxglove/studio-base/context/PanelStateContext";
+import {
+  useWorkspaceStore,
+  WorkspaceStoreSelectors,
+} from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
 import { useWorkspaceActions } from "@foxglove/studio-base/context/Workspace/useWorkspaceActions";
 
 import { PanelActionsDropdown } from "./PanelActionsDropdown";
@@ -39,6 +43,8 @@ const PanelToolbarControlsComponent = forwardRef<HTMLDivElement, PanelToolbarCon
     const panelCatalog = useContext(PanelCatalogContext);
     const { setSelectedPanelIds } = useSelectedPanels();
     const { openPanelSettings } = useWorkspaceActions();
+
+    const kioskModeActive = useWorkspaceStore(WorkspaceStoreSelectors.selectKioskModeActive);
 
     const hasSettingsSelector = useCallback(
       (store: PanelStateStore) => (panelId ? store.settingsTrees[panelId] != undefined : false),
@@ -61,17 +67,18 @@ const PanelToolbarControlsComponent = forwardRef<HTMLDivElement, PanelToolbarCon
 
     // Show the settings button so that panel title is editable, unless we have a custom
     // toolbar in which case the title wouldn't be visible.
-    const showSettingsButton = panelInfo?.hasCustomToolbar !== true || hasSettings;
+    const showSettingsButton =
+      !kioskModeActive && (panelInfo?.hasCustomToolbar !== true || hasSettings);
 
     return (
       <Stack direction="row" alignItems="center" paddingLeft={1} ref={ref}>
-        {additionalIcons}
+        {!kioskModeActive && additionalIcons}
         {showSettingsButton && (
           <ToolbarIconButton title="Settings" onClick={openSettings}>
             <SettingsIcon />
           </ToolbarIconButton>
         )}
-        <PanelActionsDropdown isUnknownPanel={isUnknownPanel} />
+        {!kioskModeActive && <PanelActionsDropdown isUnknownPanel={isUnknownPanel} />}
       </Stack>
     );
   },
