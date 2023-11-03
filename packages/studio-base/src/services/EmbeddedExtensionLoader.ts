@@ -39,25 +39,24 @@ export class EmbeddedExtensionLoader implements ExtensionLoader {
   public readonly namespace: ExtensionNamespace = "org";
 
   public async getExtensions(): Promise<ExtensionInfo[]> {
-    const extensions = Object.entries(staticExtensions.packages).map<ExtensionInfo>(
-      ([id, entry]) => {
-        const config = entry.config;
-        const qualifiedName = [this.namespace, config.publisher, config.name].join(":");
-        return {
-          id,
-          description: config.description,
-          displayName: config.displayName,
-          homepage: config.homepage,
-          keywords: config.keywords,
-          license: config.license,
-          name: config.name,
-          namespace: this.namespace,
-          publisher: config.publisher,
-          qualifiedName,
-          version: config.version,
-        };
-      },
-    );
+    const extensions = Object.entries(staticExtensions.packages).map(([id, entry]) => {
+      const config = entry.config;
+      const qualifiedName = [this.namespace, config.publisher, config.name].join(":");
+      const extensionInfo: ExtensionInfo = {
+        id,
+        description: config.description,
+        displayName: config.displayName,
+        homepage: config.homepage,
+        keywords: config.keywords,
+        license: config.license,
+        name: config.name,
+        namespace: this.namespace,
+        publisher: config.publisher,
+        qualifiedName,
+        version: config.version,
+      };
+      return extensionInfo;
+    });
     extensions.sort((a, b) => a.id.localeCompare(b.id));
 
     log.debug(`Found ${extensions.length} embedded extension(s)`);
