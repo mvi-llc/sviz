@@ -464,6 +464,7 @@ function WorkspaceContent(props: WorkspaceProps): JSX.Element {
       )}
       <SyncAdapters />
       {!kioskModeActive && <KeyListener global keyDownHandlers={keyDownHandlers} />}
+      {kioskModeActive && <style>{`.mosaic-split { pointer-events: none !important; }`}</style>}
       <div className={classes.container} ref={containerRef} tabIndex={0}>
         <AppBarComponent
           leftInset={props.appBarLeftInset}
