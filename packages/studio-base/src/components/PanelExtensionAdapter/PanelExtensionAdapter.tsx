@@ -516,7 +516,7 @@ function PanelExtensionAdapter(
         setDefaultPanelTitle(title);
       },
 
-      EXPERIMENTAL_setMessagePathDropConfig(dropConfig) {
+      unstable_setMessagePathDropConfig(dropConfig) {
         setMessagePathDropConfig(dropConfig);
       },
     };
