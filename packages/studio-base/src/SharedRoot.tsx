@@ -28,7 +28,6 @@ export function SharedRoot(props: ISharedRootContext & { children: JSX.Element }
     extensionLoaders,
     extraProviders,
     nativeAppMenu,
-    nativeWindow,
   } = props;
 
   return (
@@ -49,7 +48,6 @@ export function SharedRoot(props: ISharedRootContext & { children: JSX.Element }
                 extensionLoaders,
                 extraProviders,
                 nativeAppMenu,
-                nativeWindow,
                 onAppBarDoubleClick,
               }}
             >
