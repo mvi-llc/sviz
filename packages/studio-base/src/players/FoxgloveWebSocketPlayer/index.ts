@@ -710,22 +710,29 @@ export default class FoxgloveWebSocketPlayer implements Player {
             responseType = `${service.type}_Response`;
           }
 
-          const parsedRequest = parseChannel({
-            messageEncoding: requestMsgEncoding,
-            schema: {
-              name: requestType,
-              encoding: service.request?.schemaEncoding ?? defaultSchemaEncoding,
-              data: textEncoder.encode(requestSchema),
+          const parseChannelOptions = { allowEmptySchema: true };
+          const parsedRequest = parseChannel(
+            {
+              messageEncoding: requestMsgEncoding,
+              schema: {
+                name: requestType,
+                encoding: service.request?.schemaEncoding ?? defaultSchemaEncoding,
+                data: textEncoder.encode(service.request?.schema ?? service.requestSchema),
+              },
             },
-          });
-          const parsedResponse = parseChannel({
-            messageEncoding: responseMsgEncoding,
-            schema: {
-              name: responseType,
-              encoding: service.response?.schemaEncoding ?? defaultSchemaEncoding,
-              data: textEncoder.encode(responseSchema),
+            parseChannelOptions,
+          );
+          const parsedResponse = parseChannel(
+            {
+              messageEncoding: responseMsgEncoding,
+              schema: {
+                name: responseType,
+                encoding: service.response?.schemaEncoding ?? defaultSchemaEncoding,
+                data: textEncoder.encode(service.response?.schema ?? service.responseSchema),
+              },
             },
-          });
+            parseChannelOptions,
+          );
           const requestMsgDef = rosDatatypesToMessageDefinition(
             parsedRequest.datatypes,
             requestType,
