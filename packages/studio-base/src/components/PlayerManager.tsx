@@ -58,7 +58,7 @@ const EMPTY_USER_NODES: UserScripts = Object.freeze({});
 const EMPTY_GLOBAL_VARIABLES: GlobalVariables = Object.freeze({});
 
 type PlayerManagerProps = {
-  playerSources: IDataSourceFactory[];
+  playerSources: readonly IDataSourceFactory[];
 };
 
 const userScriptsSelector = (state: LayoutState) =>

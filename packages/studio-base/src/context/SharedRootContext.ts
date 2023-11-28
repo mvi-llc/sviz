@@ -11,14 +11,14 @@ import { IDataSourceFactory } from "@foxglove/studio-base/context/PlayerSelectio
 import { ExtensionLoader } from "@foxglove/studio-base/services/ExtensionLoader";
 
 interface ISharedRootContext {
-  deepLinks: string[];
+  deepLinks: readonly string[];
   appConfiguration?: IAppConfiguration;
-  dataSources: IDataSourceFactory[];
+  dataSources: readonly IDataSourceFactory[];
   extensionLoaders: readonly ExtensionLoader[];
   enableLaunchPreferenceScreen?: boolean;
   enableGlobalCss?: boolean;
   appBarLeftInset?: number;
-  extraProviders?: JSX.Element[];
+  extraProviders?: readonly JSX.Element[];
   customWindowControlProps?: CustomWindowControlsProps;
   onAppBarDoubleClick?: () => void;
   AppBarComponent?: (props: AppBarProps) => JSX.Element;

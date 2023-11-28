@@ -82,7 +82,7 @@ const useStyles = makeStyles()({
 });
 
 type WorkspaceProps = CustomWindowControlsProps & {
-  deepLinks?: string[];
+  deepLinks?: readonly string[];
   appBarLeftInset?: number;
   onAppBarDoubleClick?: () => void;
   // eslint-disable-next-line react/no-unused-prop-types
