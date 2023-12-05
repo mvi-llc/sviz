@@ -187,7 +187,7 @@ function SidebarItems(props: {
             {t("exploreSampleData")}
           </Button>
           <Button
-            href="https://foxglove.dev/docs/studio/connection/data-sources"
+            href="https://docs.foxglove.dev/docs/connecting-to-data/introduction"
             target="_blank"
             className={classes.button}
             onClick={() => {
@@ -249,7 +249,7 @@ function SidebarItems(props: {
           actions: (
             <>
               <Button
-                href="https://foxglove.dev/docs/studio"
+                href="https://docs.foxglove.dev/docs"
                 target="_blank"
                 className={classes.button}
                 variant="outlined"
@@ -309,7 +309,7 @@ function SidebarItems(props: {
                   {t("uploadToDataPlatform")}
                 </Button>
                 <Button
-                  href="https://foxglove.dev/docs/studio/layouts#team-layouts"
+                  href="https://docs.foxglove.dev/docs/visualization/layouts#team-layouts"
                   target="_blank"
                   className={classes.button}
                 >
