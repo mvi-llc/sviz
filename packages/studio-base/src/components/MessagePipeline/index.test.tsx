@@ -370,11 +370,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
     });
     expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
 
-    // Emit empty player state to process new subscriptions
-    await doubleAct(async () => {
-      await player.emit();
-    });
-
+    // should immediately emit last messages on new subscription
     expect(result.current.messageEventsBySubscriberId.get("custom-id")).toEqual([
       {
         message: {
@@ -503,11 +499,6 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
     });
     expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
 
-    // Emit empty player state to process new subscriptions
-    await doubleAct(async () => {
-      await player.emit();
-    });
-
     expect(result.current.messageEventsBySubscriberId.get("custom-id")).toEqual([
       {
         message: {
@@ -592,11 +583,6 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
       result.current.setSubscriptions("custom-id", [{ topic: "/input/foo" }]);
     });
     expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
-
-    // Emit empty player state to process new subscriptions
-    await doubleAct(async () => {
-      await player.emit();
-    });
 
     expect(result.current.messageEventsBySubscriberId.get("custom-id")).toEqual([
       {
