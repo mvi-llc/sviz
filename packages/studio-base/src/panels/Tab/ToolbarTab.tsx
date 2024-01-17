@@ -18,12 +18,12 @@ import textMetrics from "text-metrics";
 import { makeStyles } from "tss-react/mui";
 
 import { PANEL_TOOLBAR_MIN_HEIGHT } from "@foxglove/studio-base/components/PanelToolbar";
-import { TabActions } from "@foxglove/studio-base/panels/Tab/TabDndContext";
-import { fontSansSerif } from "@foxglove/theme";
 import {
   useWorkspaceStore,
   WorkspaceStoreSelectors,
 } from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
+import { TabActions } from "@foxglove/studio-base/panels/Tab/TabDndContext";
+import { fontSansSerif } from "@foxglove/theme";
 
 const MAX_TAB_WIDTH = 120;
 const MIN_ACTIVE_TAB_WIDTH = 40;
@@ -165,7 +165,7 @@ export function ToolbarTab(props: Props): JSX.Element {
         }
       });
     }
-  }, [isActive, selectTab, inputRef]);
+  }, [isActive, selectTab, kioskModeActive, inputRef]);
 
   const endTitleEditing = useCallback(() => {
     setEditingTitle(false);
