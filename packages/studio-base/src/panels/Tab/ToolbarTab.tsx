@@ -20,6 +20,10 @@ import { makeStyles } from "tss-react/mui";
 import { PANEL_TOOLBAR_MIN_HEIGHT } from "@foxglove/studio-base/components/PanelToolbar";
 import { TabActions } from "@foxglove/studio-base/panels/Tab/TabDndContext";
 import { fontSansSerif } from "@foxglove/theme";
+import {
+  useWorkspaceStore,
+  WorkspaceStoreSelectors,
+} from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
 
 const MAX_TAB_WIDTH = 120;
 const MIN_ACTIVE_TAB_WIDTH = 40;
@@ -130,6 +134,7 @@ export function ToolbarTab(props: Props): JSX.Element {
   const onChangeTitleInput = useCallback((ev: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(ev.target.value);
   }, []);
+  const kioskModeActive = useWorkspaceStore(WorkspaceStoreSelectors.selectKioskModeActive);
 
   const { selectTab, removeTab } = useMemo(
     () => ({
@@ -149,7 +154,7 @@ export function ToolbarTab(props: Props): JSX.Element {
   const onClickTab = useCallback(() => {
     if (!isActive) {
       selectTab();
-    } else {
+    } else if (!kioskModeActive) {
       setEditingTitle(true);
 
       setImmediate(() => {
@@ -215,6 +220,7 @@ export function ToolbarTab(props: Props): JSX.Element {
         [classes.hidden]: hidden,
       })}
       style={{
+        userSelect: "none",
         minWidth: isActive
           ? `calc(max(${MIN_ACTIVE_TAB_WIDTH}px,  min(${Math.ceil(
               measureText(tabTitle) + 30,
