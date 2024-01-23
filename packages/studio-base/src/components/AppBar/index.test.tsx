@@ -72,6 +72,7 @@ describe("<AppBar />", () => {
           onUnmaximizeWindow={mockUnmaximize}
           onCloseWindow={mockClose}
           isMaximized
+          initialZoomFactor={1}
         />
       </Wrapper>,
     );
