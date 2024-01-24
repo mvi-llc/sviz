@@ -2266,6 +2266,7 @@ __metadata:
     "@foxglove/tsconfig": 2.0.0
     "@types/dom-webcodecs": 0.1.7
     async-mutex: 0.4.0
+    comlink: "github:foxglove/comlink#216a78c5fb08550fdef4a725f468999707fec5bd"
     eventemitter3: 5.0.0
     xacro-parser: 0.3.9
   languageName: unknown
