@@ -272,7 +272,7 @@ export default function PlayerManager(props: PropsWithChildren<PlayerManagerProp
         enqueueSnackbar((error as Error).message, { variant: "error" });
       }
     },
-    [playerSources, metricsCollector, enqueueSnackbar, isMounted, addRecent],
+    [playerSources, metricsCollector, enqueueSnackbar, addRecent, isMounted],
   );
 
   // Select a recent entry by id
