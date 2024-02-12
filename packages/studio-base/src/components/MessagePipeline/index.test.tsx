@@ -148,7 +148,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
         playerState: {
           activeData: undefined,
           capabilities: [],
-          presence: PlayerPresence.NOT_PRESENT,
+          presence: PlayerPresence.INITIALIZING,
           playerId: "",
           progress: {},
         },
@@ -211,7 +211,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
     expect(all[0]!.playerState).toEqual({
       activeData: undefined,
       capabilities: [],
-      presence: PlayerPresence.NOT_PRESENT,
+      presence: PlayerPresence.INITIALIZING,
       playerId: "",
       progress: {},
     });
@@ -271,7 +271,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
         playerState: {
           activeData: undefined,
           capabilities: [],
-          presence: PlayerPresence.NOT_PRESENT,
+          presence: PlayerPresence.INITIALIZING,
           playerId: "",
           progress: {},
         },
