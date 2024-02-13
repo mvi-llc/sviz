@@ -50,6 +50,7 @@ export function makeWorkspaceContextInitialState(): WorkspaceContextStore {
     },
     playbackControls: {
       repeat: false,
+      speed: 1,
     },
   };
 }
@@ -82,7 +83,7 @@ function createWorkspaceContextStore(
   );
 }
 
-export default function WorkspaceContextProvider(props: {
+export type WorkspaceContextProviderProps = {
   children?: ReactNode;
   disablePersistenceForStorybook?: boolean;
   initialState?: Partial<WorkspaceContextStore>;
@@ -90,7 +91,11 @@ export default function WorkspaceContextProvider(props: {
     initialState?: Partial<WorkspaceContextStore>,
     options?: { disablePersistenceForStorybook?: boolean },
   ) => StoreApi<WorkspaceContextStore>;
-}): JSX.Element {
+};
+
+export default function WorkspaceContextProvider(
+  props: WorkspaceContextProviderProps,
+): JSX.Element {
   const { children, initialState, workspaceStoreCreator, disablePersistenceForStorybook } = props;
 
   const [store] = useState(() =>
