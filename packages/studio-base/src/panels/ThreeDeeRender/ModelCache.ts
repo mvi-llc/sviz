@@ -85,12 +85,16 @@ export class ModelCache {
     const GLB_MAGIC = 0x676c5446; // "glTF"
 
     const asset = await this.#fetchAsset(url);
+    const assetData = asset.data;
+    const buffer =
+      assetData.byteOffset === 0 && assetData.byteLength === assetData.buffer.byteLength
+        ? assetData.buffer
+        : assetData.buffer.slice(assetData.byteOffset, assetData.byteOffset + assetData.byteLength);
 
-    const buffer = asset.data;
     if (buffer.byteLength < 4) {
       throw new Error(`${buffer.byteLength} bytes received`);
     }
-    const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const view = new DataView(buffer, 0, buffer.byteLength);
     const contentType = options.overrideMediaType ?? asset.mediaType ?? "";
 
     // Check if this is a glTF .glb or .gltf file
@@ -100,18 +104,14 @@ export class ModelCache {
       /\.glb$/i.test(url) ||
       /\.gltf$/i.test(url)
     ) {
-      return await this.#loadGltf(url, reportError);
+      return await this.#loadGltf(url, buffer, reportError);
     }
 
     // Check if this is a STL file based on content-type or file extension
     if (STL_MIME_TYPES.includes(contentType) || /\.stl$/i.test(url)) {
       // Create a copy of the array buffer to respect the `byteOffset` and `byteLength` value as
       // the underlying three.js STLLoader only accepts an ArrayBuffer instance.
-      return this.#loadSTL(
-        url,
-        buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
-        this.options.meshUpAxis,
-      );
+      return this.#loadSTL(url, buffer, this.options.meshUpAxis);
     }
 
     // Check if this is a COLLADA file based on content-type or file extension
@@ -129,7 +129,11 @@ export class ModelCache {
     throw new Error(`Unknown ${buffer.byteLength} byte mesh (content-type: "${contentType}")`);
   }
 
-  async #loadGltf(url: string, reportError: ErrorCallback): Promise<LoadedModel> {
+  async #loadGltf(
+    url: string,
+    buffer: ArrayBuffer,
+    reportError: ErrorCallback,
+  ): Promise<LoadedModel> {
     const onError = (assetUrl: string) => {
       const originalUrl = unrewriteUrl(assetUrl);
       log.error(`Failed to load GLTF asset "${originalUrl}" for "${url}"`);
@@ -141,9 +145,10 @@ export class ModelCache {
     const gltfLoader = new GLTFLoader(manager);
     gltfLoader.setMeshoptDecoder(MeshoptDecoder);
     gltfLoader.setDRACOLoader(this.#getDracoLoader(manager));
+    const basePath = url.slice(0, url.lastIndexOf("/") + 1);
 
     manager.itemStart(url);
-    const gltf = await gltfLoader.loadAsync(url);
+    const gltf = await gltfLoader.parseAsync(buffer, basePath);
     manager.itemEnd(url);
 
     // THREE.js uses Y-up, while Studio follows the ROS
