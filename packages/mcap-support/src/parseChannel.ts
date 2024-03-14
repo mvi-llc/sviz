@@ -230,6 +230,16 @@ export function parseChannel(
     const schemaMap = res.schema;
     const hashMap = Cbuf.schemaMapToHashMap(schemaMap);
 
+    // For each schemaMap key that contains a `::` separator, add new entries to
+    // `schemaMap` with the same value as the original key, but with the `::`
+    // replaced by `.` and `/`
+    for (const [key, value] of Array.from(schemaMap.entries())) {
+      if (key.includes("::")) {
+        schemaMap.set(key.replace(/::/g, "."), value);
+        schemaMap.set(key.replace(/::/g, "/"), value);
+      }
+    }
+
     return {
       datatypes: res.schema,
       deserialize: (data) => Cbuf.deserializeMessage(schemaMap, hashMap, data, 0).message,
