@@ -18,7 +18,7 @@ import {
   ExtensionCatalogContext,
   RegisteredPanel,
 } from "@foxglove/studio-base/context/ExtensionCatalogContext";
-import { TopicAliasFunctions } from "@foxglove/studio-base/players/TopicAliasingPlayer/aliasing";
+import { TopicAliasFunctions } from "@foxglove/studio-base/players/TopicAliasingPlayer/StateProcessorFactory";
 import { ExtensionLoader } from "@foxglove/studio-base/services/ExtensionLoader";
 import { ExtensionInfo, ExtensionNamespace } from "@foxglove/studio-base/types/Extensions";
 
