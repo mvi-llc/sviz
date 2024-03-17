@@ -53,6 +53,7 @@ import {
   SubscribePayload,
   Topic,
   MessageEvent,
+  PlaybackSpeed,
   PlayerProblem,
   MessageBlock,
 } from "@foxglove/studio-base/players/types";
@@ -1114,8 +1115,8 @@ export default class UserScriptPlayer implements Player {
     this.#player.seekPlayback?.(time);
   }
 
-  public setPlaybackSpeed(speed: number): void {
-    this.#player.setPlaybackSpeed?.(speed);
+  public setPlaybackSpeed(speedFraction: PlaybackSpeed): void {
+    this.#player.setPlaybackSpeed?.(speedFraction);
   }
 
   public seekPlayback(time: Time): void {

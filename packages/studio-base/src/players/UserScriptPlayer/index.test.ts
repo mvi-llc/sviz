@@ -95,6 +95,7 @@ const basicPlayerState: PlayerStateActiveData = {
   startTime: { sec: 0, nsec: 0 },
   endTime: { sec: 1, nsec: 0 },
   isPlaying: true,
+  repeatEnabled: false,
   speed: 0.2,
   lastSeekTime: 0,
   totalBytesReceived: 1234,
@@ -210,8 +211,8 @@ describe("UserScriptPlayer", () => {
         messages.push(playerState);
       });
       expect(fakePlayer.setPlaybackSpeed).not.toHaveBeenCalled();
-      userScriptPlayer.setPlaybackSpeed(0.4);
-      expect(fakePlayer.setPlaybackSpeed).toHaveBeenCalledWith(0.4);
+      userScriptPlayer.setPlaybackSpeed(0.5);
+      expect(fakePlayer.setPlaybackSpeed).toHaveBeenCalledWith(0.5);
     });
 
     it("delegates seekPlayback to underlying player", () => {
