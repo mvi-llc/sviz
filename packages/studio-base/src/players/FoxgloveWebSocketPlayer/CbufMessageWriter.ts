@@ -2,7 +2,13 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import Cbuf, { CbufMessage, CbufMessageMap, CbufHashMap, CbufMessageDefinition } from "wasm-cbuf";
+import Cbuf, {
+  CbufMessage,
+  CbufMessageMap,
+  CbufHashMap,
+  CbufMessageDefinition,
+  CbufValue,
+} from "wasm-cbuf";
 
 import { MessageWriter } from "./MessageWriter";
 
@@ -36,7 +42,7 @@ export class CbufMessageWriter implements MessageWriter {
       variant: 0,
       hashValue: this.#msgdef.hashValue,
       timestamp: nowSeconds(),
-      message: message as Record<string, unknown>,
+      message: message as Record<string, CbufValue>,
     };
     msgEvent.size = Cbuf.serializedMessageSize(this.#schemaMap, this.#hashMap, msgEvent);
 

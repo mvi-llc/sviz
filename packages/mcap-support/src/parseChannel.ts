@@ -72,6 +72,15 @@ function parsedDefinitionsToDatatypes(
   return datatypes;
 }
 
+function parseCBufSchema(schema: string): ReturnType<typeof Cbuf.parseCBufSchema> {
+  try {
+    return Cbuf.parseCBufSchema(schema);
+  } catch (unk) {
+    const e = unk as Error;
+    return { error: e.stack ?? e.message, schema: new Map() };
+  }
+}
+
 /**
  * Process a channel/schema and extract information that can be used to deserialize messages on the
  * channel, and schemas in the format expected by Studio's RosDatatypes.
@@ -223,7 +232,7 @@ export function parseChannel(
       );
     }
     const schema = new TextDecoder().decode(channel.schema.data);
-    const res = Cbuf.parseCBufSchema(schema);
+    const res = parseCBufSchema(schema);
     if (res.error) {
       throw new Error(`Error parsing cbuf schema: ${res.error}\n\n${schema}`);
     }
