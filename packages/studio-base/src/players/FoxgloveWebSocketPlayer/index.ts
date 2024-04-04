@@ -166,8 +166,8 @@ export default class FoxgloveWebSocketPlayer implements Player {
     sourceId: string;
   }) {
     this.#metricsCollector = metricsCollector;
-    this.#url = url;
-    this.#name = url;
+    this.#url = normalizeWsUrl(url);
+    this.#name = wsUrlToName(this.#url);
     this.#metricsCollector.playerConstructed();
     this.#sourceId = sourceId;
     this.#urlState = {
@@ -295,7 +295,7 @@ export default class FoxgloveWebSocketPlayer implements Player {
       }
 
       this.#id = newSessionId;
-      this.#name = `${this.#url}\n${event.name}`;
+      this.#name = event.name;
       this.#serverCapabilities = Array.isArray(event.capabilities) ? event.capabilities : [];
       this.#serverPublishesTime = this.#serverCapabilities.includes(ServerCapability.time);
       this.#supportedEncodings = event.supportedEncodings;
@@ -1390,4 +1390,37 @@ function statusLevelToProblemSeverity(level: StatusLevel): PlayerProblem["severi
   } else {
     return "error";
   }
+}
+
+// Converts shorthand and fully qualified WebSocket URLs to a normalized form
+function normalizeWsUrl(input: string): string {
+  const defaultScheme = "ws://";
+  const defaultPort = "8765";
+  let scheme = defaultScheme;
+  let port = defaultPort;
+  let hostname = input;
+
+  // Check if input includes a scheme
+  if (input.startsWith("wss://") || input.startsWith("ws://")) {
+    const schemeEndIndex = input.indexOf("://") + 3;
+    scheme = input.substring(0, schemeEndIndex);
+    hostname = input.substring(schemeEndIndex);
+  } else if (input.includes("://")) {
+    throw new Error(`Unsupported scheme in WebSocket URL: ${input}`);
+  }
+
+  // Check if hostname includes a port
+  const portStartIndex = hostname.indexOf(":");
+  if (portStartIndex !== -1) {
+    port = hostname.substring(portStartIndex + 1);
+    hostname = hostname.substring(0, portStartIndex);
+  }
+
+  // Construct the full WebSocket URL
+  return `${scheme}${hostname}:${port}`;
+}
+
+function wsUrlToName(url: string): string {
+  const urlObj = new URL(url);
+  return urlObj.port === "8765" ? urlObj.hostname : `${urlObj.hostname}:${urlObj.port}`;
 }
