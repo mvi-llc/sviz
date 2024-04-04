@@ -2335,7 +2335,7 @@ __metadata:
     flatbuffers_reflection: 0.0.7
     protobufjs: "patch:protobufjs@7.2.4#../../patches/protobufjs.patch"
     typescript: 5.3.3
-    wasm-cbuf: 2.3.0
+    wasm-cbuf: 2.5.1
   languageName: unknown
   linkType: soft
 
@@ -2672,7 +2672,7 @@ __metadata:
     use-debounce: 10.0.0
     use-immer: 0.9.0
     uuid: 9.0.1
-    wasm-cbuf: 2.3.0
+    wasm-cbuf: 2.5.1
     webpack: 5.90.1
     zustand: 4.5.0
   languageName: unknown
@@ -20698,12 +20698,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"wasm-cbuf@npm:2.3.0":
-  version: 2.3.0
-  resolution: "wasm-cbuf@npm:2.3.0"
+"wasm-cbuf@npm:2.5.1":
+  version: 2.5.1
+  resolution: "wasm-cbuf@npm:2.5.1"
   dependencies:
-    "@foxglove/message-definition": ^0.2.0
-  checksum: bf34d068c1ffa5c60a9165236590898125800918229df66997c41bcc8bd5944d55a1eadd0de94027e8ecad54b2d4c1aa6ea8cdc368e76d064d2f3de6f4c260a3
+    "@foxglove/message-definition": ^0.3.1
+  checksum: 9bab7bd52d4ebdd5124a3b918a03906c6133550b566d2ab529fb1c2f8d9023ccbd2c3c63f2e496112e08ac6b3914c8b42fe5ef668d60b4ea72dcac8b7c3b7b93
   languageName: node
   linkType: hard
 
