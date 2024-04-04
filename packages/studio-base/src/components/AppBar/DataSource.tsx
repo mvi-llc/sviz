@@ -14,6 +14,10 @@ import {
 import Stack from "@foxglove/studio-base/components/Stack";
 import TextMiddleTruncate from "@foxglove/studio-base/components/TextMiddleTruncate";
 import WssErrorModal from "@foxglove/studio-base/components/WssErrorModal";
+import {
+  WorkspaceStoreSelectors,
+  useWorkspaceStore,
+} from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
 import { useWorkspaceActions } from "@foxglove/studio-base/context/Workspace/useWorkspaceActions";
 import { PlayerPresence } from "@foxglove/studio-base/players/types";
 
@@ -85,6 +89,7 @@ export function DataSource(): JSX.Element {
   const seek = useMessagePipeline(selectSeek);
 
   const { sidebarActions } = useWorkspaceActions();
+  const kioskModeActive = useWorkspaceStore(WorkspaceStoreSelectors.selectKioskModeActive);
 
   // A crude but correct proxy (for our current architecture) for whether a connection is live
   const isLiveConnection = seek == undefined;
@@ -93,7 +98,7 @@ export function DataSource(): JSX.Element {
   const initializing = playerPresence === PlayerPresence.INITIALIZING;
   const error =
     playerPresence === PlayerPresence.ERROR ||
-    playerProblems.some((problem) => problem.severity === "error");
+    (!kioskModeActive && playerProblems.some((problem) => problem.severity === "error"));
   const loading = reconnecting || initializing;
 
   const playerDisplayName = initializing && playerName == undefined ? "Initializing…" : playerName;
