@@ -6,7 +6,9 @@ import {
   IDataSourceFactory,
   DataSourceFactoryInitializeArgs,
 } from "@foxglove/studio-base/context/PlayerSelectionContext";
-import FoxgloveWebSocketPlayer from "@foxglove/studio-base/players/FoxgloveWebSocketPlayer";
+import FoxgloveWebSocketPlayer, {
+  normalizeWsUrl,
+} from "@foxglove/studio-base/players/FoxgloveWebSocketPlayer";
 import { Player } from "@foxglove/studio-base/players/types";
 
 export default class FoxgloveWebSocketDataSourceFactory implements IDataSourceFactory {
@@ -39,7 +41,7 @@ export default class FoxgloveWebSocketDataSourceFactory implements IDataSourceFa
         defaultValue: "localhost",
         validate: (newValue: string): Error | undefined => {
           try {
-            const url = new URL(newValue);
+            const url = new URL(normalizeWsUrl(newValue));
             if (url.protocol !== "ws:" && url.protocol !== "wss:") {
               return new Error(`Invalid protocol: ${url.protocol}`);
             }
