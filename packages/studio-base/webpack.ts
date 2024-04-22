@@ -243,6 +243,10 @@ export function makeConfig(
         ReactNull: null, // eslint-disable-line no-restricted-syntax
         FOXGLOVE_STUDIO_VERSION: JSON.stringify(version),
       }),
+      new webpack.EnvironmentPlugin({
+        SENTRY_DSN: process.env.SENTRY_DSN ?? null, // eslint-disable-line no-restricted-syntax
+        SENTRY_PROJECT: process.env.SENTRY_PROJECT ?? null, // eslint-disable-line no-restricted-syntax
+      }),
       // https://webpack.js.org/plugins/ignore-plugin/#example-of-ignoring-moment-locales
       new webpack.IgnorePlugin({
         resourceRegExp: /^\.[\\/]locale$/,
