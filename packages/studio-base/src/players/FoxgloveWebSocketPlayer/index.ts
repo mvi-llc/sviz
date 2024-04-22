@@ -905,6 +905,9 @@ export default class FoxgloveWebSocketPlayer implements Player {
     if (!this.#endTime || isGreaterThan(currentTime, this.#endTime)) {
       this.#endTime = currentTime;
     }
+    if (this.#presence !== PlayerPresence.PRESENT) {
+      this.#endTime = this.#startTime;
+    }
 
     const messages = this.#parsedMessages;
     this.#parsedMessages = [];
