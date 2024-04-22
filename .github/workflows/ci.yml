@@ -155,7 +155,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            latest
+            type=raw,value=latest,public=true
 
       - name: Configure QEMU
         uses: docker/setup-qemu-action@v2

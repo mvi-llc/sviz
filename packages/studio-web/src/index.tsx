@@ -7,7 +7,7 @@ import { StrictMode, useEffect } from "react";
 import ReactDOM from "react-dom";
 
 import Logger from "@foxglove/log";
-import type { IDataSourceFactory } from "@foxglove/studio-base";
+import { setReportErrorHandler, type IDataSourceFactory } from "@foxglove/studio-base";
 import CssBaseline from "@foxglove/studio-base/components/CssBaseline";
 
 import { CompatibilityBanner } from "./CompatibilityBanner";
@@ -54,6 +54,10 @@ export async function main(getParams: () => Promise<MainParams> = async () => ({
         );
       },
       tracesSampleRate: 1.0,
+    });
+
+    setReportErrorHandler((error) => {
+      Sentry.captureException(error);
     });
   }
 
