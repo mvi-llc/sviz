@@ -4,7 +4,9 @@
   "private": true,
   "main": "./src/index.tsx",
   "dependencies": {
-    "@foxglove/studio-base": "workspace:*"
+    "@foxglove/studio-base": "workspace:*",
+    "@sentry/browser": "7.111.0",
+    "@sentry/webpack-plugin": "2.16.1"
   },
   "devDependencies": {
     "@fluentui/react-icons": "2.0.227",

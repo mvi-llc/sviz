@@ -2,6 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import * as Sentry from "@sentry/browser";
 import { StrictMode, useEffect } from "react";
 import ReactDOM from "react-dom";
 
@@ -35,6 +36,26 @@ export async function main(getParams: () => Promise<MainParams> = async () => ({
   window.onerror = (...args) => {
     console.error(...args);
   };
+
+  if (typeof process.env.SENTRY_DSN === "string") {
+    log.info("initializing Sentry");
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      integrations: (integrations) => {
+        return (
+          integrations
+            // Remove the default breadbrumbs integration - it does not accurately track breadcrumbs and
+            // creates more noise than benefit
+            .filter((integration) => integration.name !== "Breadcrumbs")
+            .concat([
+              // location changes as a result of non-navigation interactions such as seeking
+              Sentry.browserTracingIntegration({ instrumentNavigation: false }),
+            ])
+        );
+      },
+      tracesSampleRate: 1.0,
+    });
+  }
 
   const rootEl = document.getElementById("root");
   if (!rootEl) {
