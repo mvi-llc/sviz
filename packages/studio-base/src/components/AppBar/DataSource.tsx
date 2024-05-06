@@ -7,6 +7,7 @@ import { CircularProgress, IconButton } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { makeStyles } from "tss-react/mui";
 
+import { Uptime } from "@foxglove/studio-base/components/AppBar/Uptime";
 import {
   MessagePipelineContext,
   useMessagePipeline,
@@ -119,6 +120,7 @@ export function DataSource(): JSX.Element {
             <>
               <span>/</span>
               <EndTimestamp />
+              <Uptime />
             </>
           )}
         </div>
