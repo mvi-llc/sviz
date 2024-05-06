@@ -10,7 +10,6 @@ import {
   MessagePipelineContext,
   useMessagePipeline,
 } from "@foxglove/studio-base/components/MessagePipeline";
-import { formatDuration } from "@foxglove/studio-base/util/formatTime";
 
 const selectStartTime = (ctx: MessagePipelineContext) => ctx.playerState.activeData?.startTime;
 const selectCurrentTime = (ctx: MessagePipelineContext) => ctx.playerState.activeData?.currentTime;
